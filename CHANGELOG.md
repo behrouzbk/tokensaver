@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `filler` now removes Persian filler: «لطفاً», «از تو/شما می‌خواهم که…» and
+  «ممنون می‌شوم اگر…», including the common ZWNJ-as-space and no-ZWNJ spellings
+  (thanks @AliAsgharPZ, #6).
+
 ## [0.1.4] - 2026-10-26
 
 Documentation only; no change to how tokensaver works.

@@ -30,8 +30,8 @@ Romanian · Russian · Serbian (Cyrillic) · Slovak · Slovenian · Spanish · S
 Tagalog (Filipino) · Tamil · Telugu · Thai · Turkish · Ukrainian · Urdu · Vietnamese
 
 Right-to-left scripts (Arabic, Hebrew, Persian, Urdu) and languages without spaces between
-words (Chinese, Japanese, Thai, Khmer, Burmese) included. The `filler` and
-`repeated-instructions` rules, and "Example 1:" detection, still understand only English.
+words (Chinese, Japanese, Thai, Khmer, Burmese) included. The `filler` rule understands
+English and Persian; `repeated-instructions` and "Example 1:" detection, only English.
 **Native speakers: add your language's filler phrases in
 [#5](https://github.com/behrouzbk/tokensaver/issues/5).**
 
@@ -253,9 +253,9 @@ Please read this before relying on the numbers.
 - **Prices go stale.** Check the `last_updated` date in the output. Some listed prices are
   scheduled to change (see the `notes` field in `prices.json`).
 - **Languages.** Token counting and the `json`, `whitespace` and `duplicates` rules work
-  in every language (tested on 55, see above). The `filler` and `repeated-instructions`
-  rules, and "Example 1:" detection, currently understand English only. Estimates for
-  Claude and Gemini are less reliable for non-English text.
+  in every language (tested on 55, see above). The `filler` rule understands English and
+  Persian; `repeated-instructions` and "Example 1:" detection, currently English only.
+  Estimates for Claude and Gemini are less reliable for non-English text.
 - **Message overhead is not counted.** Chat APIs add a few tokens per message for roles
   and formatting. tokensaver counts the text you give it.
 - **Rules are heuristics.** Review suggestions can be wrong: a repeated sentence can be

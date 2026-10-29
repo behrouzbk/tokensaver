@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-29
+
 ### Added
 - `tokensaver scan FOLDER`: measures every prompt file in a folder and its subfolders,
   with what the safe fixes and all fixes would save per file, biggest saving first, and

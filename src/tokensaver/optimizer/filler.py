@@ -48,6 +48,10 @@ PHRASES: tuple[Phrase, ...] = (
     _p("for the purpose of → for", r"\bfor the purpose of\b", "for"),
     _p("in the event that → if", r"\bin the event that\b", "if"),
     _p("with regard to → about", r"\bwith regards? to\b", "about"),
+    # Persian: U+200C (ZWNJ) below is invisible; U+064B (tanween) is a non-word char.
+    _p("لطفاً…", r"\bلطفاً? "),
+    _p("از تو/شما می‌خواهم که…", r"\bاز (?:تو|شما) می[‌ ]?خواهم که "),
+    _p("ممنون می‌شوم اگر…", r"\bممنون می[‌ ]?شوم اگر "),
 )  # fmt: skip
 
 _SENTENCE_END = ".!?:\n"

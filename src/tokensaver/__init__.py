@@ -1,3 +1,3 @@
 """tokensaver: count tokens and cut AI API costs."""
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"

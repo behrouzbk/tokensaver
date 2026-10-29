@@ -45,6 +45,8 @@ English and Persian; `repeated-instructions` and "Example 1:" detection, only En
 `examples/messy_prompt.txt` is a typical customer-support system prompt: polite filler, a
 rule written twice, a paragraph pasted twice, and pretty-printed JSON.
 
+![tokensaver on the example prompt: 834 to 665 tokens, 20% fewer input tokens, $422 saved per 1M calls on gpt-4o](https://cdn.jsdelivr.net/gh/behrouzbk/tokensaver@main/assets/tokensaver-og-1200x627.png)
+
 ```text
 $ tokensaver optimize examples/messy_prompt.txt --apply all
 

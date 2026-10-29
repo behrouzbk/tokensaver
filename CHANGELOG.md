@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `tokensaver scan FOLDER`: measures every prompt file in a folder and its subfolders,
+  with what the safe fixes and all fixes would save per file, biggest saving first, and
+  a total. `--glob` picks the file patterns. Hidden folders, `node_modules`,
+  `__pycache__` and Python virtual environments are skipped (#4).
+- `--json` for `count`, `compare`, `optimize` and `scan`: prints one JSON object instead
+  of tables, for scripts and CI (#2).
+
 ## [0.1.5] - 2026-10-29
 
 ### Added

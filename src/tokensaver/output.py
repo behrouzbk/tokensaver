@@ -14,6 +14,7 @@ from tokensaver.counter import TokenCount
 from tokensaver.optimizer import Finding, OptimizationResult
 from tokensaver.optimizer.base import Risk
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
+from tokensaver.scan import ScanResult
 
 CALLS = 1_000  # costs are also shown per this many calls, where they become readable
 MAX_DIFF_LINES = 60
@@ -71,6 +72,12 @@ def render_count(
     console.print(prices_footer(table))
 
 
+def cheapest_first(
+    rows: list[tuple[ModelInfo, TokenCount]],
+) -> list[tuple[ModelInfo, TokenCount]]:
+    return sorted(rows, key=lambda r: (input_cost(r[1].tokens, r[0]), r[0].name))
+
+
 def render_compare(
     console: Console, rows: list[tuple[ModelInfo, TokenCount]], table: PriceTable, source: str
 ) -> None:
@@ -81,7 +88,7 @@ def render_compare(
     out.add_column("Count", no_wrap=True)
     out.add_column("$/call", justify="right", no_wrap=True)
     out.add_column(f"$/{CALLS // 1000}k calls", justify="right", no_wrap=True)
-    for model, count in sorted(rows, key=lambda r: (input_cost(r[1].tokens, r[0]), r[0].name)):
+    for model, count in cheapest_first(rows):
         cost = input_cost(count.tokens, model)
         out.add_row(
             model.name,
@@ -247,5 +254,58 @@ def render_optimize(
 
     console.print(_summary(result))
     if not result.model.exact:
+        console.print(Text(ESTIMATE_NOTE, style="yellow"))
+    console.print(prices_footer(table))
+
+
+def _saving(tokens: int, approx: str) -> str:
+    return f"{approx}-{tokens:,}" if tokens else "0"
+
+
+def render_scan(
+    console: Console, result: ScanResult, table: PriceTable, folder: str, patterns: str
+) -> None:
+    model = result.model
+    approx = "" if model.exact else "~"
+    header = Text.assemble(("tokensaver scan", "bold"), f"  {folder}  ·  {model.name} (")
+    console.print(Text.assemble(header, accuracy_label(model), ")"))
+    if not result.files:
+        console.print(Text(f"No prompt files found (looked for {patterns}).", style="yellow"))
+    else:
+        out = Table(box=box.SIMPLE_HEAVY, show_footer=True)
+        cost = input_cost(result.tokens, model) * CALLS
+        saved = result.dollars_saved_all * CALLS
+        out.add_column("File", footer=f"Total ({len(result.files)} files)")
+        out.add_column("Tokens", f"{approx}{result.tokens:,}", justify="right", no_wrap=True)
+        out.add_column(f"$/{CALLS // 1000}k calls", usd(cost), justify="right", no_wrap=True)
+        out.add_column(
+            "Safe fixes", _saving(result.safe_saved, approx), justify="right", no_wrap=True
+        )
+        out.add_column(
+            "All fixes", _saving(result.all_saved, approx), justify="right", no_wrap=True
+        )
+        out.add_column("Saved $/1k", usd(saved), justify="right", no_wrap=True)
+        for f in result.files:
+            out.add_row(
+                Text(f.path),
+                f"{approx}{f.tokens:,}",
+                usd(input_cost(f.tokens, model) * CALLS),
+                _saving(f.safe_saved, approx),
+                _saving(f.all_saved, approx),
+                usd(input_cost(f.all_saved, model) * CALLS),
+            )
+        console.print(out)
+        console.print(
+            Text(
+                "Safe fixes are what 'optimize' applies by default; all fixes include review "
+                "suggestions. Run 'tokensaver optimize FILE' to see them.",
+                style="dim",
+            )
+        )
+    if result.skipped:
+        console.print(
+            Text(f"Skipped (not UTF-8 text): {', '.join(result.skipped)}", style="yellow")
+        )
+    if not model.exact:
         console.print(Text(ESTIMATE_NOTE, style="yellow"))
     console.print(prices_footer(table))

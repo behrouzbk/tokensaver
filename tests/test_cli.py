@@ -247,6 +247,109 @@ def test_bundled_example_shows_clear_savings(run, tmp_path: Path) -> None:
     assert "Can you please explain what happened" in out_file.read_text(encoding="utf-8")
 
 
+# --- scan --------------------------------------------------------------------
+
+
+@pytest.fixture
+def prompts_dir(tmp_path: Path) -> Path:
+    folder = tmp_path / "prompts"
+    (folder / "sub").mkdir(parents=True)
+    (folder / "messy.txt").write_text(MESSY, encoding="utf-8")
+    (folder / "sub" / "lean.md").write_text("Summarize the text.", encoding="utf-8")
+    (folder / "notes.py").write_text("print('not a prompt')", encoding="utf-8")
+    return folder
+
+
+def test_scan_lists_files_by_savings(run, prompts_dir: Path) -> None:
+    result = run("scan", str(prompts_dir))
+    assert result.exit_code == 0
+    out = result.output
+    assert out.index("messy.txt") < out.index("sub/lean.md")
+    assert "notes.py" not in out
+    assert "Total (2 files)" in out
+    assert "Safe fixes" in out and "All fixes" in out
+
+
+def test_scan_glob_and_no_matches(run, prompts_dir: Path) -> None:
+    result = run("scan", str(prompts_dir), "--glob", "*.md")
+    assert result.exit_code == 0
+    assert "lean.md" in result.output and "messy.txt" not in result.output
+
+    none = run("scan", str(prompts_dir), "--glob", "*.yaml")
+    assert none.exit_code == 0
+    assert "No prompt files found" in none.output
+
+
+def test_scan_rejects_a_file(run, messy_file: Path) -> None:
+    result = run("scan", str(messy_file))
+    assert result.exit_code == 2
+    assert "Not a folder" in result.output
+
+
+def test_scan_estimated_model(run, prompts_dir: Path) -> None:
+    result = run("scan", str(prompts_dir), "-m", "gemini-2.5-flash")
+    assert result.exit_code == 0
+    assert "estimated" in result.output and "~" in result.output
+
+
+# --- --json ------------------------------------------------------------------
+
+
+def test_count_json(run) -> None:
+    result = run("count", "Hello, world!", "--json")
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data == {
+        "source": "text",
+        "model": "gpt-4o",
+        "exact": True,
+        "prices_last_updated": "2026-10-26",
+        "tokens": 4,
+        "cost_per_call": 0.00001,
+    }
+
+
+def test_compare_json_is_cheapest_first(run) -> None:
+    result = run("compare", "Some prompt text here.", "--models", "gpt-4o,gpt-4o-mini", "--json")
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert [m["model"] for m in data["models"]] == ["gpt-4o-mini", "gpt-4o"]
+    assert all(m["exact"] for m in data["models"])
+
+
+def test_optimize_json(run, messy_file: Path, tmp_path: Path) -> None:
+    out_file = tmp_path / "out.txt"
+    result = run("optimize", str(messy_file), "--json", "-o", str(out_file))
+    assert result.exit_code == 0
+    data = json.loads(result.output)  # nothing but JSON, even with --output
+    assert data["source"] == "messy.txt"
+    assert data["tokens_before"] - data["tokens_after"] == data["tokens_saved"] > 0
+    assert data["extra_tokens_if_all_applied"] > 0
+    assert data["saved_to"] == str(out_file)
+    assert out_file.exists()
+    rules = {f["rule"]: f for f in data["findings"]}
+    assert rules["json"]["risk"] == "safe" and rules["json"]["applied"] is True
+    assert rules["filler"]["risk"] == "review" and rules["filler"]["applied"] is False
+
+
+def test_json_escapes_non_ascii(run) -> None:
+    result = run("optimize", "لطفاً متن را خلاصه کن.", "--json")
+    assert result.exit_code == 0
+    assert result.output.isascii()
+    titles = [f["title"] for f in json.loads(result.output)["findings"]]
+    assert any("لطفاً" in t for t in titles)
+
+
+def test_scan_json(run, prompts_dir: Path) -> None:
+    result = run("scan", str(prompts_dir), "--json")
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert [f["path"] for f in data["files"]] == ["messy.txt", "sub/lean.md"]
+    assert data["total"]["files"] == 2
+    assert data["total"]["all_tokens_saved"] == sum(f["all_tokens_saved"] for f in data["files"])
+    assert data["skipped"] == []
+
+
 # --- models / version / misc -------------------------------------------------
 
 

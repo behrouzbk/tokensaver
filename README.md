@@ -118,6 +118,9 @@ tokensaver optimize prompt.txt
 tokensaver optimize prompt.txt --apply all --output prompt.optimized.txt
 tokensaver optimize prompt.txt --apply json,whitespace,filler -o prompt.optimized.txt
 
+# 5. Which prompt files in my project are worth fixing first?
+tokensaver scan prompts/
+
 # Pipe text in with "-", list models and prices
 cat prompt.txt | tokensaver count -        # PowerShell: Get-Content prompt.txt | tokensaver count -
 tokensaver models
@@ -129,7 +132,7 @@ Windows paths work as usual: `tokensaver optimize examples\messy_prompt.txt`.
 
 Run `tokensaver <command> --help` for the same information in your terminal.
 
-### Input (every command)
+### Input (`count`, `compare`, `optimize`)
 
 `INPUT` can be any of:
 
@@ -149,6 +152,7 @@ Token count and input cost on one model.
 |---|---|
 | `--model`, `-m` | Model to price against. Default: `gpt-4o`. See `tokensaver models` for all names. |
 | `--prices FILE` | Use your own `prices.json` instead of the bundled one. |
+| `--json` | Prints JSON instead of tables, for scripts and CI (see [JSON output](#json-output)). |
 
 ### `tokensaver compare INPUT`
 
@@ -158,6 +162,7 @@ Tokens and input cost on many models, cheapest first.
 |---|---|
 | `--models a,b,c` | Only these models (comma-separated). Default: all of them. |
 | `--prices FILE` | Use your own `prices.json`. |
+| `--json` | Prints JSON instead of tables, for scripts and CI (see [JSON output](#json-output)). |
 
 ### `tokensaver optimize INPUT`
 
@@ -175,6 +180,7 @@ total.
 | `--force` | Lets `--output` replace a file that already exists. It still refuses to overwrite the input file. |
 | `--no-diff` | Hides the before/after diff (it is shown by default). |
 | `--prices FILE` | Use your own `prices.json`. |
+| `--json` | Prints JSON instead of tables, for scripts and CI (see [JSON output](#json-output)). |
 
 Common combinations:
 
@@ -184,6 +190,63 @@ tokensaver optimize prompt.txt --apply all -o prompt.min.txt     # apply everyth
 tokensaver optimize prompt.txt --apply json,whitespace,duplicates -o prompt.min.txt
 tokensaver optimize prompt.txt -m claude-sonnet-5-5 --no-diff    # savings on Claude, short output
 tokensaver optimize prompt.txt --apply all -o prompt.min.txt --force   # re-run and replace the copy
+```
+
+### `tokensaver scan FOLDER`
+
+Measures every prompt file in a folder and its subfolders: one row per file with its
+tokens, its cost, and what the safe fixes and all fixes would save, biggest saving first,
+plus a total. It only reads files; nothing is changed. Run `optimize` on a file to see
+its suggestions.
+
+| Option | What it does |
+|---|---|
+| `--model`, `-m` | Model to measure on. Default: `gpt-4o`. |
+| `--glob PATTERN` | File name pattern to include; repeat it for several (`--glob "*.txt" --glob "*.yaml"`). Default: `*.txt *.md *.prompt *.jinja *.jinja2 *.j2`. |
+| `--prices FILE` | Use your own `prices.json`. |
+| `--json` | Prints JSON instead of tables, for scripts and CI (see [JSON output](#json-output)). |
+
+Hidden folders (such as `.git`), `node_modules`, `__pycache__` and Python virtual
+environments are skipped. Files that are not UTF-8 text are listed as skipped.
+
+### JSON output
+
+`--json` prints one JSON object and nothing else, so you can use tokensaver in scripts
+and CI. Non-ASCII text is escaped (`\uXXXX`), so the output is valid on any console.
+Dollar amounts are per call, in USD.
+
+```bash
+tokensaver optimize prompt.txt --json
+```
+
+```json
+{
+  "source": "prompt.txt",
+  "model": "gpt-4o",
+  "exact": true,
+  "prices_last_updated": "2026-10-26",
+  "tokens_before": 834,
+  "tokens_after": 772,
+  "tokens_saved": 62,
+  "percent_saved": 7.43,
+  "dollars_saved_per_call": 0.000155,
+  "extra_tokens_if_all_applied": 107,
+  "tidied": 2,
+  "findings": [
+    {"rule": "json", "risk": "safe", "title": "Minify JSON block (140 chars, was 185)",
+     "line": 13, "see_line": null, "flag_only": false, "tokens": 18,
+     "dollars_per_call": 4.5e-05, "applied": true}
+  ],
+  "saved_to": null
+}
+```
+
+For example, to fail a CI job when the safe fixes alone would save more than 50 tokens
+(this uses [`jq`](https://jqlang.org/)):
+
+```bash
+saved=$(tokensaver optimize prompts/system.txt --json | jq .tokens_saved)
+[ "$saved" -le 50 ] || { echo "Prompt has $saved tokens of easy savings"; exit 1; }
 ```
 
 ### `tokensaver models` and `tokensaver version`
@@ -274,9 +337,9 @@ Please read this before relying on the numbers.
 ## Roadmap
 
 - [ ] Calibrate the Claude and Gemini estimate factors against official token counters
-- [ ] `--json` output for CI pipelines and scripts
+- [x] `--json` output for CI pipelines and scripts
 - [ ] Output-token and prompt-caching cost estimates
-- [ ] Directory mode: scan all prompts in a project
+- [x] Directory mode: scan all prompts in a project (`tokensaver scan`)
 - [ ] More rules: verbose markdown, long URLs, unused template variables
 - [ ] GitHub Action that comments token savings on pull requests
 

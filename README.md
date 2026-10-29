@@ -1,4 +1,9 @@
-# tokensaver
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://cdn.jsdelivr.net/gh/behrouzbk/tokensaver@main/assets/logo-dark.svg">
+    <img alt="tokensaver" src="https://cdn.jsdelivr.net/gh/behrouzbk/tokensaver@main/assets/logo-light.svg" height="56">
+  </picture>
+</h1>
 
 **Find out what your prompt costs on every major AI model, and exactly which changes make it cheaper.**
 

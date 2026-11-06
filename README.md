@@ -131,6 +131,11 @@ tokensaver models
 
 Windows paths work as usual: `tokensaver optimize examples\messy_prompt.txt`.
 
+**Want to try it step by step?** [examples/README.md](https://github.com/behrouzbk/tokensaver/blob/main/examples/README.md)
+is a ready-made English test: download two sample prompts and a tools file, then measure
+the fixed part of a request, optimize a long system prompt (431 → 310 tokens) and measure
+again. Every step shows the result you should see.
+
 ## Commands and options
 
 Run `tokensaver <command> --help` for the same information in your terminal.

@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from tokensaver import __version__
 from tokensaver.cli import app
-from tokensaver.output import usd
+from tokensaver.output import share_label, usd
 from tokensaver.pricing import load_prices
 
 MESSY = (
@@ -440,6 +440,38 @@ def test_request_json(run, messy_file: Path, tools_file: Path) -> None:
     [request] = data["requests"]
     assert request["tokens"] == fixed["tokens"] + request["user"]["tokens"]
     assert 0 < request["fixed_percent"] < 100
+
+
+def test_request_share_never_rounds_to_100(run, tmp_path: Path) -> None:
+    system = tmp_path / "system.txt"
+    system.write_text("Answer briefly. " * 100, encoding="utf-8")  # 300 tokens on gpt-4o
+    result = run("request", "--system", str(system), "--user", "Hi")  # 1 token: 99.67%
+    assert result.exit_code == 0
+    assert "100%" not in result.output
+    assert "99.7%" in result.output
+
+
+@pytest.mark.parametrize(
+    ("percent", "label"),
+    [
+        (0, "0%"),
+        (0.04, "<0.1%"),
+        (0.3, "0.3%"),
+        (0.5, "0.5%"),
+        (0.7, "1%"),
+        (42.4, "42%"),
+        (98.6, "99%"),
+        (99.4, "99%"),
+        (99.6, "99.6%"),
+        (99.5, "99.5%"),
+        (99.9, "99.9%"),
+        (99.94, "99.9%"),
+        (99.97, ">99.9%"),
+        (100, "100%"),
+    ],
+)
+def test_share_label(percent: float, label: str) -> None:
+    assert share_label(percent) == label
 
 
 # --- models / version / misc -------------------------------------------------

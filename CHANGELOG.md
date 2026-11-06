@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-06
+
 ### Added
 - `tokensaver request`: splits a request into its fixed part (`--system` prompt and
   `--tools` schemas, sent with every call) and the `--user` message, with tokens, cost and

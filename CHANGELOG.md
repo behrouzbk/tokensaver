@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-06
+
 ### Fixed
 - `request`: the fixed part's share no longer rounds to 100% (or 0%) when it is not.
   A 4-token message against a 976-token system prompt now shows 99.6%, not 100%, which

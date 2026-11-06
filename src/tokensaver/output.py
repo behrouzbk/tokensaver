@@ -14,6 +14,7 @@ from tokensaver.counter import TokenCount
 from tokensaver.optimizer import Finding, OptimizationResult
 from tokensaver.optimizer.base import Risk
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
+from tokensaver.request import Part, RequestBreakdown
 from tokensaver.scan import ScanResult
 
 CALLS = 1_000  # costs are also shown per this many calls, where they become readable
@@ -308,4 +309,100 @@ def render_scan(
         )
     if not model.exact:
         console.print(Text(ESTIMATE_NOTE, style="yellow"))
+    console.print(prices_footer(table))
+
+
+TOOLS_NOTE = (
+    "~ on tool schemas: counted as compact JSON. Providers turn tool definitions into "
+    "their own hidden format before the model sees them, so the real count can differ."
+)
+OVERHEAD_NOTE = "Message overhead (roles and formatting, a few tokens per message) is not counted."
+
+
+def _part_tokens(tokens: int, exact: bool) -> str:
+    return f"{tokens:,}" if exact else f"~{tokens:,}"
+
+
+def _fixed_table(result: RequestBreakdown) -> Table:
+    model = result.model
+    out = Table(title="Fixed part: sent with every request", box=box.SIMPLE_HEAVY)
+    out.add_column("Part", no_wrap=True)
+    out.add_column("Source")
+    out.add_column("Tokens", justify="right", no_wrap=True)
+    out.add_column(f"$/{CALLS // 1000}k calls", justify="right", no_wrap=True)
+    rows: list[tuple[str, Part]] = []
+    if result.system is not None:
+        rows.append(("System prompt", result.system))
+    if result.tools is not None:
+        n = result.tools.tool_count
+        rows.append((f"Tool schemas ({n} tool{'' if n == 1 else 's'})", result.tools))
+    for label, part in rows:
+        out.add_row(
+            label,
+            Text(part.label),
+            _part_tokens(part.tokens, part.exact),
+            usd(input_cost(part.tokens, model) * CALLS),
+        )
+    out.add_section()
+    out.add_row(
+        Text("Fixed part", style="bold"),
+        "",
+        Text(_part_tokens(result.fixed_tokens, result.fixed_exact), style="bold"),
+        Text(usd(input_cost(result.fixed_tokens, model) * CALLS), style="bold"),
+    )
+    return out
+
+
+def _requests_table(result: RequestBreakdown) -> Table:
+    model = result.model
+    out = Table(title="Each request: fixed part + user message", box=box.SIMPLE_HEAVY)
+    out.add_column("User message", no_wrap=True, overflow="ellipsis", max_width=40)
+    out.add_column("User tokens", justify="right", no_wrap=True)
+    out.add_column("Request tokens", justify="right", no_wrap=True)
+    out.add_column("Fixed share", justify="right", no_wrap=True)
+    out.add_column(f"$/{CALLS // 1000}k calls", justify="right", no_wrap=True)
+    for user in result.users:
+        total = result.request_tokens(user)
+        out.add_row(
+            Text(user.label),
+            _part_tokens(user.tokens, user.exact),
+            _part_tokens(total, result.fixed_exact and user.exact),
+            f"{result.fixed_percent(user):.0f}%",
+            usd(input_cost(total, model) * CALLS),
+        )
+    return out
+
+
+def _share_range(result: RequestBreakdown) -> str:
+    shares = [round(result.fixed_percent(user)) for user in result.users]
+    low, high = min(shares), max(shares)
+    return f"{low}%" if low == high else f"{low}-{high}%"
+
+
+def render_request(console: Console, result: RequestBreakdown, table: PriceTable) -> None:
+    model = result.model
+    console.print(
+        Text.assemble(
+            ("tokensaver request", "bold"), f"  {model.name} (", accuracy_label(model), ")"
+        )
+    )
+    console.print(_fixed_table(result))
+    if result.users:
+        console.print(_requests_table(result))
+        console.print(
+            Text(
+                f"The fixed part is {_share_range(result)} of each request. It costs the same "
+                "whatever the user writes, so shrinking it saves on every call.",
+                style="bold",
+            )
+        )
+    else:
+        console.print(
+            Text("Add --user to see what share of each request the fixed part is.", style="dim")
+        )
+    if result.tools is not None:
+        console.print(Text(TOOLS_NOTE, style="yellow"))
+    if not model.exact:
+        console.print(Text(ESTIMATE_NOTE, style="yellow"))
+    console.print(Text(OVERHEAD_NOTE, style="dim"))
     console.print(prices_footer(table))

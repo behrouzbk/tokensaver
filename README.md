@@ -121,6 +121,9 @@ tokensaver optimize prompt.txt --apply json,whitespace,filler -o prompt.optimize
 # 5. Which prompt files in my project are worth fixing first?
 tokensaver scan prompts/
 
+# 6. How much of each request is the system prompt and tools, sent on every call?
+tokensaver request --system system.md --tools tools.json --user "Where is my order?"
+
 # Pipe text in with "-", list models and prices
 cat prompt.txt | tokensaver count -        # PowerShell: Get-Content prompt.txt | tokensaver count -
 tokensaver models
@@ -208,6 +211,42 @@ its suggestions.
 
 Hidden folders (such as `.git`), `node_modules`, `__pycache__` and Python virtual
 environments are skipped. Files that are not UTF-8 text are listed as skipped.
+
+### `tokensaver request`
+
+Splits a request into its **fixed part**, the system prompt and tool schemas sent with
+every call, and the **user message**. The fixed part costs the same whatever the user
+types, in any language, so it is often most of the bill and the first thing worth
+shrinking.
+
+```bash
+tokensaver request --system system.md --tools tools.json --user "Where is my order?"
+
+# The same question in three languages: only the user part changes
+tokensaver request --system system.md --tools tools.json \
+  --user "Where is my order?" --user "我的订单在哪里？" --user "ਮੇਰਾ ਆਰਡਰ ਕਿੱਥੇ ਹੈ?"
+```
+
+You get one table for the fixed part (each part's tokens and cost, and the total) and one
+row per user message with the full request size and the fixed part's share of it.
+
+| Option | What it does |
+|---|---|
+| `--system` | System prompt: a file, `-` for stdin, or the text itself. |
+| `--tools` | Tool schemas as JSON: a file or `-`. Accepts a list of tools (OpenAI or Anthropic format), a single tool, or a whole request body with a `tools` key. |
+| `--user` | A user message: a file, `-` or the text itself. Repeat it to compare several. Optional. |
+| `--model`, `-m` | Model to measure on. Default: `gpt-4o`. |
+| `--prices FILE` | Use your own `prices.json`. |
+| `--json` | Prints JSON instead of tables, for scripts and CI (see [JSON output](#json-output)). |
+
+At least one of `--system` and `--tools` is required, and only one input can be `-`.
+Tool schemas are counted as compact JSON and always shown as estimated (`~`): providers
+turn tool definitions into their own hidden format before the model sees them.
+
+Tip: keep the system prompt, tool schemas and format rules in one language (usually
+English) and translate only what the user sees. A translated system prompt pays the
+language gap on every call, and gives each language its own prompt prefix, so prompt
+caching can no longer share it.
 
 ### JSON output
 
@@ -317,7 +356,8 @@ Please read this before relying on the numbers.
   rough heuristics, not measurements; real counts can differ by 10–20% or more,
   especially for code and non-English text. For exact counts, use the provider's own
   token-counting API.
-- **Input cost only.** `count`, `compare` and `optimize` price the prompt you send. Output
+- **Input cost only.** `count`, `compare`, `optimize`, `scan` and `request` price the
+  prompt you send. Output
   tokens, cached-input discounts, batch discounts and long-context surcharges (for example
   above 200K tokens on Gemini 3.1 Pro or 100K on Claude Haiku 5.5) are not included.
 - **Prices go stale.** Check the `last_updated` date in the output. Some listed prices are

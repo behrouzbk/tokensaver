@@ -19,6 +19,7 @@ from tokensaver.output import (
     render_count,
     render_models,
     render_optimize,
+    render_request,
     render_scan,
 )
 from tokensaver.pricing import (
@@ -33,8 +34,10 @@ from tokensaver.report import (
     count_report,
     dumps,
     optimize_report,
+    request_report,
     scan_report,
 )
+from tokensaver.request import ToolsError, breakdown
 from tokensaver.scan import DEFAULT_PATTERNS, scan
 
 DEFAULT_MODEL = "gpt-4o"
@@ -240,6 +243,54 @@ def scan_command(
         typer.echo(dumps(scan_report(result, table, str(folder))))
     else:
         render_scan(_console(), result, table, str(folder), " ".join(patterns))
+
+
+@app.command(name="request")
+def request_command(
+    system: Annotated[
+        str | None,
+        typer.Option(help="System prompt: a file path, '-' for stdin, or the text itself."),
+    ] = None,
+    tools: Annotated[
+        str | None,
+        typer.Option(help="Tool schemas as JSON (OpenAI or Anthropic format): a file or '-'."),
+    ] = None,
+    user: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--user",
+            help="A user message (file, '-' or text). Repeat it to compare several, "
+            "for example the same message in different languages.",
+        ),
+    ] = None,
+    model: ModelOpt = DEFAULT_MODEL,
+    prices: PricesOpt = None,
+    json_output: JsonOpt = False,
+) -> None:
+    """Split a request into its fixed part (system prompt + tools) and the user message."""
+    if system is None and tools is None:
+        raise _fail("Pass --system and/or --tools: they are the fixed part of every request.")
+    users = user or []
+    if [system, tools, *users].count("-") > 1:
+        raise _fail("Only one input can be read from stdin ('-').")
+    table = _load_table(prices)
+    info = _get_model(table, model)
+    system_in = _read(system) if system is not None else None
+    tools_in = _read(tools) if tools is not None else None
+    users_in = [_read(value) for value in users]
+    try:
+        result = breakdown(
+            info,
+            system=(system_in.text, system_in.source) if system_in else None,
+            tools=(tools_in.text, tools_in.source) if tools_in else None,
+            users=[(u.text, u.source) for u in users_in],
+        )
+    except ToolsError as error:
+        raise _fail(str(error)) from None
+    if json_output:
+        typer.echo(dumps(request_report(result, table)))
+    else:
+        render_request(_console(), result, table)
 
 
 @app.command()

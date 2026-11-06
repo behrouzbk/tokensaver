@@ -350,6 +350,98 @@ def test_scan_json(run, prompts_dir: Path) -> None:
     assert data["skipped"] == []
 
 
+# --- request -----------------------------------------------------------------
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_order_status",
+            "description": "Look up an order by its number.",
+            "parameters": {"type": "object", "properties": {"order_id": {"type": "string"}}},
+        },
+    }
+]
+
+
+@pytest.fixture
+def tools_file(tmp_path: Path) -> Path:
+    path = tmp_path / "tools.json"
+    path.write_text(json.dumps(TOOLS, indent=2), encoding="utf-8")
+    return path
+
+
+def test_request_breakdown(run, messy_file: Path, tools_file: Path) -> None:
+    result = run(
+        "request",
+        "--system", str(messy_file),
+        "--tools", str(tools_file),
+        "--user", "Where is my order?",
+        "--user", "我的订单在哪里？",
+    )  # fmt: skip
+    assert result.exit_code == 0
+    out = result.output
+    assert "System prompt" in out and "messy.txt" in out
+    assert "Tool schemas (1 tool)" in out and "tools.json" in out
+    assert "Fixed part" in out
+    assert "Where is my order?" in out and "我的订单在哪里？" in out
+    assert "of each request" in out
+    assert "tool definitions" in out  # tool counts are labelled as estimates
+
+
+def test_request_without_user_hints_at_it(run, messy_file: Path) -> None:
+    result = run("request", "--system", str(messy_file))
+    assert result.exit_code == 0
+    assert "Add --user" in result.output
+    assert "tool definitions" not in result.output
+
+
+def test_request_needs_a_fixed_part(run) -> None:
+    result = run("request", "--user", "Hello")
+    assert result.exit_code == 2
+    assert "--system" in result.output
+
+
+def test_request_only_one_stdin(run) -> None:
+    result = run("request", "--system", "-", "--user", "-", input="x")
+    assert result.exit_code == 2
+    assert "stdin" in result.output
+
+
+def test_request_invalid_tools(run, tmp_path: Path) -> None:
+    bad = tmp_path / "tools.json"
+    bad.write_text("{not json", encoding="utf-8")
+    result = run("request", "--tools", str(bad))
+    assert result.exit_code == 2
+    assert "not valid JSON" in result.output
+
+
+def test_request_estimated_model(run, messy_file: Path) -> None:
+    result = run("request", "--system", str(messy_file), "-m", "claude-sonnet-5-5")
+    assert result.exit_code == 0
+    assert "estimated" in result.output and "~" in result.output
+
+
+def test_request_json(run, messy_file: Path, tools_file: Path) -> None:
+    result = run(
+        "request",
+        "--system", str(messy_file),
+        "--tools", str(tools_file),
+        "--user", "Where is my order?",
+        "--json",
+    )  # fmt: skip
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    fixed = data["fixed"]
+    assert fixed["system"]["source"] == "messy.txt" and fixed["system"]["exact"] is True
+    assert fixed["tools"]["tool_count"] == 1 and fixed["tools"]["exact"] is False
+    assert fixed["tokens"] == fixed["system"]["tokens"] + fixed["tools"]["tokens"]
+    assert fixed["exact"] is False
+    [request] = data["requests"]
+    assert request["tokens"] == fixed["tokens"] + request["user"]["tokens"]
+    assert 0 < request["fixed_percent"] < 100
+
+
 # --- models / version / misc -------------------------------------------------
 
 

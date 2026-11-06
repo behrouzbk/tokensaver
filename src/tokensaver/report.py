@@ -11,6 +11,7 @@ from pathlib import Path
 from tokensaver.counter import TokenCount
 from tokensaver.optimizer import Finding, OptimizationResult
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
+from tokensaver.request import Part, RequestBreakdown
 from tokensaver.scan import ScanResult
 
 
@@ -120,4 +121,38 @@ def scan_report(result: ScanResult, table: PriceTable, folder: str) -> dict:
             "dollars_saved_per_call_all": _dollars(result.dollars_saved_all),
         },
         "skipped": result.skipped,
+    }
+
+
+def _part(part: Part, model: ModelInfo) -> dict:
+    return {
+        "source": part.source,
+        "tokens": part.tokens,
+        "exact": part.exact,
+        "cost_per_call": _dollars(input_cost(part.tokens, model)),
+    }
+
+
+def request_report(result: RequestBreakdown, table: PriceTable) -> dict:
+    model = result.model
+    tools = result.tools
+    return {
+        **_header(model, table),
+        "fixed": {
+            "tokens": result.fixed_tokens,
+            "exact": result.fixed_exact,
+            "cost_per_call": _dollars(input_cost(result.fixed_tokens, model)),
+            "system": _part(result.system, model) if result.system else None,
+            "tools": {**_part(tools, model), "tool_count": tools.tool_count} if tools else None,
+        },
+        "requests": [
+            {
+                "user": _part(user, model),
+                "tokens": result.request_tokens(user),
+                "exact": result.fixed_exact and user.exact,
+                "fixed_percent": round(result.fixed_percent(user), 2),
+                "cost_per_call": _dollars(input_cost(result.request_tokens(user), model)),
+            }
+            for user in result.users
+        ],
     }

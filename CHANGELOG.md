@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `tokensaver request`: splits a request into its fixed part (`--system` prompt and
+  `--tools` schemas, sent with every call) and the `--user` message, with tokens, cost and
+  the fixed part's share of each request. Repeat `--user` to compare messages, for example
+  the same question in different languages. Tool schemas are counted as compact JSON and
+  labelled as estimates. Supports `--json` (#10).
+
 ## [0.2.0] - 2026-10-29
 
 ### Added

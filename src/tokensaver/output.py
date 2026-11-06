@@ -367,16 +367,30 @@ def _requests_table(result: RequestBreakdown) -> Table:
             Text(user.label),
             _part_tokens(user.tokens, user.exact),
             _part_tokens(total, result.fixed_exact and user.exact),
-            f"{result.fixed_percent(user):.0f}%",
+            share_label(result.fixed_percent(user)),
             usd(input_cost(total, model) * CALLS),
         )
     return out
 
 
+def share_label(percent: float) -> str:
+    """A whole percent, but never 0% or 100% for a share that is neither none nor all.
+
+    99.6% rounds to 100%, which would read as if the user message cost nothing.
+    """
+    whole = f"{percent:.0f}"
+    if percent <= 0 or percent >= 100 or whole not in ("0", "100"):
+        return f"{whole}%"
+    one_decimal = f"{percent:.1f}"
+    if one_decimal not in ("0.0", "100.0"):
+        return f"{one_decimal}%"
+    return "<0.1%" if percent < 50 else ">99.9%"
+
+
 def _share_range(result: RequestBreakdown) -> str:
-    shares = [round(result.fixed_percent(user)) for user in result.users]
-    low, high = min(shares), max(shares)
-    return f"{low}%" if low == high else f"{low}-{high}%"
+    shares = [result.fixed_percent(user) for user in result.users]
+    low, high = share_label(min(shares)), share_label(max(shares))
+    return low if low == high else f"{low} to {high}"
 
 
 def render_request(console: Console, result: RequestBreakdown, table: PriceTable) -> None:

@@ -9,6 +9,8 @@ You will:
    and how much is the user's message (`tokensaver request`).
 2. Find the waste in a long system prompt and save an optimized copy (`tokensaver optimize`).
 3. Measure again to see the saving on **every** request.
+4. Check that two requests share the same start, so prompt caching can reuse it
+   (`tokensaver cache-check`).
 
 The expected numbers are for tokensaver **0.3.1** on `gpt-4o` (exact counts), with prices
 as of 2026-10-26. Token counts stay the same on later versions; dollar amounts change
@@ -21,6 +23,7 @@ when prices are updated.
 | [`messy_prompt.txt`](messy_prompt.txt) | A customer-support system prompt (834 tokens). |
 | [`support_bot_prompt.txt`](support_bot_prompt.txt) | A longer support-bot system prompt with typical waste: polite filler, pretty-printed JSON, a duplicate line, a paragraph pasted twice and a repeated rule (431 tokens). |
 | [`tools.json`](tools.json) | Two tool definitions in OpenAI format: `get_order_status` and `create_refund`. |
+| [`request_1.json`](request_1.json), [`request_2.json`](request_2.json) | Two Chat Completions request bodies with the tools and the support-bot prompt, plus the current date and time at the top of the system prompt (Test 3). |
 
 ## Setup
 
@@ -37,7 +40,7 @@ pip install --upgrade prompt-tokensaver
 tokensaver version
 
 $base = "https://raw.githubusercontent.com/behrouzbk/tokensaver/main/examples"
-foreach ($f in "messy_prompt.txt", "support_bot_prompt.txt", "tools.json") {
+foreach ($f in "messy_prompt.txt", "support_bot_prompt.txt", "tools.json", "request_1.json", "request_2.json") {
     Invoke-WebRequest "$base/$f" -OutFile $f
 }
 ```
@@ -55,7 +58,7 @@ pip install --upgrade prompt-tokensaver
 tokensaver version
 
 base=https://raw.githubusercontent.com/behrouzbk/tokensaver/main/examples
-for f in messy_prompt.txt support_bot_prompt.txt tools.json; do curl -sLO "$base/$f"; done
+for f in messy_prompt.txt support_bot_prompt.txt tools.json request_1.json request_2.json; do curl -sLO "$base/$f"; done
 ```
 
 ✅ `tokensaver version` prints `0.3.1` or newer, and the folder has the three files.
@@ -188,6 +191,43 @@ Request tokens drop from `~578` / `~590` to `~457` / `~469`.
 
 **What this shows:** optimizing the system prompt saved 121 tokens on every request,
 more than 7 times the longest user message (17 tokens).
+
+## Test 3: do the requests share a cacheable prefix?
+
+> Needs `tokensaver cache-check`, added after 0.3.1. Run `tokensaver cache-check --help`;
+> if the command is missing, skip this test until the next release.
+
+Prompt caching reuses the start of a request only when it is byte-identical to an earlier
+one. Both request files put the current date and time at the top of the system prompt,
+a common pattern that changes on every call.
+
+```powershell
+tokensaver cache-check request_1.json request_2.json
+```
+
+✅ Expected:
+
+| Request | Tokens | Shared prefix | After it |
+|---|---:|---:|---:|
+| request_1.json | ~599 | ~160 | ~439 |
+| request_2.json | ~604 | ~160 | ~444 |
+
+- Both requests leave the shared prefix in `messages[0] (system)` at line 1, column 39,
+  on `2026-11-07 10:15` and `2026-11-07 10:16`, marked `date/time`.
+- A red line: the fixed part differs, so the cache can reuse at most the first ~160
+  tokens (the tool schemas and the words before the date).
+- A tip to move the date and time after the static part, for example into the user
+  message, and a warning that 160 tokens is below the 1,024-token minimum.
+
+**What this shows:** one changing line at the top of the system prompt means about 440
+tokens per request can never come from the cache.
+
+```powershell
+# The same check as JSON, for CI: prints true while the fixed part differs
+tokensaver cache-check request_1.json request_2.json --json
+```
+
+✅ `"fixed_part_differs": true` and `"shared_prefix": {"tokens": 160, ...}`.
 
 ## More checks (optional)
 

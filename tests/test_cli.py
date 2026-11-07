@@ -507,3 +507,76 @@ def test_no_args_shows_help(run) -> None:
 )
 def test_usd_format(amount: float, text: str) -> None:
     assert usd(amount) == text
+
+
+# --- cache-check -------------------------------------------------------------
+
+
+def _request_file(tmp_path: Path, name: str, system: str, user: str) -> Path:
+    path = tmp_path / name
+    body = {
+        "tools": TOOLS,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+    }
+    path.write_text(json.dumps(body, indent=2), encoding="utf-8")
+    return path
+
+
+def test_cache_check_finds_a_timestamp(run, tmp_path: Path) -> None:
+    a = _request_file(tmp_path, "a.json", "Now: 2026-11-07T10:15:00Z\n" + MESSY, "hi")
+    b = _request_file(tmp_path, "b.json", "Now: 2026-11-07T10:16:42Z\n" + MESSY, "hi")
+    result = run("cache-check", str(a), str(b))
+    assert result.exit_code == 0
+    out = result.output
+    assert "messages[0] (system)" in out
+    assert "date/time" in out
+    assert "fixed part (tools or system prompt) differs" in out
+    assert "below 1,024" in out
+
+
+def test_cache_check_fixed_part_identical(run, tmp_path: Path) -> None:
+    a = _request_file(tmp_path, "a.json", MESSY, "Where is my order?")
+    b = _request_file(tmp_path, "b.json", MESSY, "I want a refund")
+    result = run("cache-check", str(a), str(b), "--min-tokens", "0")
+    assert result.exit_code == 0
+    assert "The fixed part is identical" in result.output
+    assert "below" not in result.output
+
+
+def test_cache_check_plain_prompts_with_tools(run, messy_file: Path, tools_file: Path) -> None:
+    result = run("cache-check", str(messy_file), "-", "--tools", str(tools_file), input=MESSY)
+    assert result.exit_code == 0
+    assert "All 2 requests are identical" in result.output
+
+
+def test_cache_check_json(run, tmp_path: Path) -> None:
+    a = _request_file(tmp_path, "a.json", MESSY, "Where is my order?")
+    b = _request_file(tmp_path, "b.json", MESSY, "I want a refund")
+    result = run("cache-check", str(a), str(b), "--json")
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["identical"] is False
+    assert data["fixed_part_differs"] is False
+    assert data["shared_prefix"]["min_cacheable_tokens"] == 1024
+    assert [d["part"] for d in data["differences"]] == ["messages[1] (user)"] * 2
+    for request in data["requests"]:
+        assert request["shared_prefix_tokens"] + request["tokens_after_prefix"] == request["tokens"]
+
+
+def test_cache_check_needs_two_inputs(run, messy_file: Path) -> None:
+    result = run("cache-check", str(messy_file))
+    assert result.exit_code == 2
+    assert "at least two" in result.output
+
+
+def test_cache_check_only_one_stdin(run) -> None:
+    result = run("cache-check", "-", "-", input="x")
+    assert result.exit_code == 2
+
+
+def test_cache_check_bad_tools_in_body(run, tmp_path: Path, messy_file: Path) -> None:
+    bad = tmp_path / "bad.json"
+    bad.write_text('{"tools": "x", "system": "hi"}', encoding="utf-8")
+    result = run("cache-check", str(bad), str(messy_file))
+    assert result.exit_code == 2
+    assert "bad.json" in result.output

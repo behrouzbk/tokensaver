@@ -10,6 +10,7 @@ from pathlib import Path
 
 from tokensaver.counter import TokenCount
 from tokensaver.optimizer import Finding, OptimizationResult
+from tokensaver.prefix import PrefixCheck
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
 from tokensaver.request import Part, RequestBreakdown
 from tokensaver.scan import ScanResult
@@ -154,5 +155,41 @@ def request_report(result: RequestBreakdown, table: PriceTable) -> dict:
                 "cost_per_call": _dollars(input_cost(result.request_tokens(user), model)),
             }
             for user in result.users
+        ],
+    }
+
+
+def prefix_report(result: PrefixCheck, table: PriceTable, min_tokens: int) -> dict:
+    return {
+        **_header(result.model, table),
+        "identical": result.identical,
+        "fixed_part_differs": result.fixed_differs,
+        "shared_prefix": {
+            "tokens": result.shared_tokens,
+            "exact": result.exact,
+            "characters": result.shared_chars,
+            "below_min_cacheable": result.shared_tokens < min_tokens,
+            "min_cacheable_tokens": min_tokens,
+        },
+        "requests": [
+            {
+                "source": request.source,
+                "tokens": request.tokens,
+                "shared_prefix_tokens": request.shared_tokens,
+                "tokens_after_prefix": request.rest_tokens,
+            }
+            for request in result.requests
+        ],
+        "differences": [
+            {
+                "source": diff.source,
+                "part": diff.part,
+                "fixed": diff.fixed,
+                "line": diff.line,
+                "column": diff.column,
+                "snippet": diff.snippet,
+                "looks_like": diff.dynamic,
+            }
+            for diff in result.differences
         ],
     }

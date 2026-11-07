@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `tokensaver cache-check REQUEST...`: compares two or more requests (request bodies as
+  JSON, or plain-text system prompts with optional `--tools`) and shows the prefix they
+  share, where each one leaves it (part, line, column and text), whether the fixed part
+  (tools or system prompt) differs, and whether the differing value looks like a date,
+  time or ID that breaks prompt caching on every call. Warns when the shared prefix is
+  below `--min-tokens` (default 1,024). Supports `--json` (#14).
+
 ## [0.3.1] - 2026-11-06
 
 ### Fixed

@@ -19,9 +19,11 @@ from tokensaver.output import (
     render_count,
     render_models,
     render_optimize,
+    render_prefix,
     render_request,
     render_scan,
 )
+from tokensaver.prefix import RequestInputError, check, render_input
 from tokensaver.pricing import (
     ModelInfo,
     PriceDataError,
@@ -34,6 +36,7 @@ from tokensaver.report import (
     count_report,
     dumps,
     optimize_report,
+    prefix_report,
     request_report,
     scan_report,
 )
@@ -41,6 +44,7 @@ from tokensaver.request import ToolsError, breakdown
 from tokensaver.scan import DEFAULT_PATTERNS, scan
 
 DEFAULT_MODEL = "gpt-4o"
+MIN_CACHEABLE_TOKENS = 1024  # OpenAI GPT-5.6+; earlier models and other providers vary
 
 app = typer.Typer(
     help="Count tokens, compare model costs and get concrete savings for your prompts. "
@@ -291,6 +295,56 @@ def request_command(
         typer.echo(dumps(request_report(result, table)))
     else:
         render_request(_console(), result, table)
+
+
+@app.command(name="cache-check")
+def cache_check_command(
+    inputs: Annotated[
+        list[str],
+        typer.Argument(
+            help="Two or more requests to compare: request bodies as JSON (tools, "
+            "system/instructions, messages/input) or plain-text system prompts. "
+            "Each is a file path or '-' for stdin.",
+            metavar="REQUEST...",
+            show_default=False,
+        ),
+    ],
+    tools: Annotated[
+        str | None,
+        typer.Option(help="Tool schemas (JSON file or '-') to put in front of plain-text prompts."),
+    ] = None,
+    min_tokens: Annotated[
+        int,
+        typer.Option(
+            help="Warn when the shared prefix is shorter than this. 1,024 is OpenAI's minimum "
+            "for GPT-5.6+; check your provider's docs.",
+            min=0,
+        ),
+    ] = MIN_CACHEABLE_TOKENS,
+    model: ModelOpt = DEFAULT_MODEL,
+    prices: PricesOpt = None,
+    json_output: JsonOpt = False,
+) -> None:
+    """Check that requests start with the same bytes, so prompt caching can reuse them."""
+    if len(inputs) < 2:
+        raise _fail("Pass at least two requests to compare.")
+    if [*inputs, tools].count("-") > 1:
+        raise _fail("Only one input can be read from stdin ('-').")
+    table = _load_table(prices)
+    info = _get_model(table, model)
+    tools_in = _read(tools) if tools is not None else None
+    try:
+        rendered = [
+            render_input(p.text, p.source, tools_in.text if tools_in else None)
+            for p in (_read(value) for value in inputs)
+        ]
+    except (RequestInputError, ToolsError) as error:
+        raise _fail(str(error)) from None
+    result = check(rendered, info)
+    if json_output:
+        typer.echo(dumps(prefix_report(result, table, min_tokens)))
+    else:
+        render_prefix(_console(), result, min_tokens)
 
 
 @app.command()

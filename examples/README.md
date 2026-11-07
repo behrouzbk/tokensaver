@@ -12,7 +12,7 @@ You will:
 4. Check that two requests share the same start, so prompt caching can reuse it
    (`tokensaver cache-check`).
 
-The expected numbers are for tokensaver **0.3.1** on `gpt-4o` (exact counts), with prices
+The expected numbers are for tokensaver **0.4.0** on `gpt-4o` (exact counts), with prices
 as of 2026-10-26. Token counts stay the same on later versions; dollar amounts change
 when prices are updated.
 
@@ -61,7 +61,7 @@ base=https://raw.githubusercontent.com/behrouzbk/tokensaver/main/examples
 for f in messy_prompt.txt support_bot_prompt.txt tools.json request_1.json request_2.json; do curl -sLO "$base/$f"; done
 ```
 
-✅ `tokensaver version` prints `0.3.1` or newer, and the folder has the three files.
+✅ `tokensaver version` prints `0.4.0` or newer, and the folder has the five files.
 
 > **Tip:** download the files rather than pasting them into the terminal. Pasting long
 > multi-line text into the PowerShell console can silently drop characters. If you
@@ -193,9 +193,6 @@ Request tokens drop from `~578` / `~590` to `~457` / `~469`.
 more than 7 times the longest user message (17 tokens).
 
 ## Test 3: do the requests share a cacheable prefix?
-
-> Needs `tokensaver cache-check`, added after 0.3.1. Run `tokensaver cache-check --help`;
-> if the command is missing, skip this test until the next release.
 
 Prompt caching reuses the start of a request only when it is byte-identical to an earlier
 one. Both request files put the current date and time at the top of the system prompt,

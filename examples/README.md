@@ -12,7 +12,7 @@ You will:
 4. Check that two requests share the same start, so prompt caching can reuse it
    (`tokensaver cache-check`).
 
-The expected numbers are for tokensaver **0.4.0** on `gpt-4o` (exact counts), with prices
+The expected numbers are for tokensaver **0.5.0** on `gpt-4o` (exact counts), with prices
 as of 2026-11-07. Token counts stay the same on later versions; dollar amounts change
 when prices are updated.
 
@@ -61,7 +61,7 @@ base=https://raw.githubusercontent.com/behrouzbk/tokensaver/main/examples
 for f in messy_prompt.txt support_bot_prompt.txt tools.json request_1.json request_2.json; do curl -sLO "$base/$f"; done
 ```
 
-✅ `tokensaver version` prints `0.4.0` or newer, and the folder has the five files.
+✅ `tokensaver version` prints `0.5.0` or newer, and the folder has the five files.
 
 > **Tip:** download the files rather than pasting them into the terminal. Pasting long
 > multi-line text into the PowerShell console can silently drop characters. If you
@@ -245,7 +245,7 @@ tokensaver request --system support_bot_prompt.txt --tools tools.json -m claude-
 `~859`, and a yellow note explaining the estimate.
 
 ```powershell
-# What prompt caching does to the fixed part (needs 0.5.0 or newer)
+# What prompt caching does to the fixed part
 tokensaver request --system support_bot_prompt.txt --tools tools.json -m claude-sonnet-5-5 --cache-hit-rate 0.9
 ```
 
@@ -254,7 +254,7 @@ call `$2.15` (writing the cache costs 1.25×), Later calls `$0.0859`, and Averag
 cache hits `$0.2921`. Below it: "A cached call pays 95% less for the fixed part."
 
 ```powershell
-# A fixed part too short to be cached (needs 0.5.0 or newer)
+# A fixed part too short to be cached
 tokensaver request --system support_bot_prompt.txt --tools tools.json -m gpt-6.1-sol
 ```
 

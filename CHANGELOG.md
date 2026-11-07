@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-07
+
 ### Added
 - `tokensaver cache-check REQUEST...`: compares two or more requests (request bodies as
   JSON, or plain-text system prompts with optional `--tools`) and shows the prefix they

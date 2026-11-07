@@ -124,6 +124,9 @@ tokensaver scan prompts/
 # 6. How much of each request is the system prompt and tools, sent on every call?
 tokensaver request --system system.md --tools tools.json --user "Where is my order?"
 
+# 7. Do my requests start with the same bytes, so prompt caching can reuse them?
+tokensaver cache-check request1.json request2.json
+
 # Pipe text in with "-", list models and prices
 cat prompt.txt | tokensaver count -        # PowerShell: Get-Content prompt.txt | tokensaver count -
 tokensaver models
@@ -253,6 +256,50 @@ English) and translate only what the user sees. A translated system prompt pays 
 language gap on every call, and gives each language its own prompt prefix, so prompt
 caching can no longer share it.
 
+### `tokensaver cache-check REQUEST...`
+
+Prompt caching only helps when the start of a request is **byte-identical** to an earlier
+one. Providers cache tools first, then the system prompt, then the messages, so one value
+that changes on every call (a timestamp, a session ID, the user's tier) near the top of
+the system prompt means nothing after it is ever reused, and every call pays full price.
+
+`cache-check` compares two or more requests and shows:
+
+- how many tokens all of them share from the start (the most the cache could reuse)
+- where each request leaves that shared prefix: the part (`tools`, `system`,
+  `messages[0] (system)`, ...), line and column, and the text there
+- whether the difference is in the **fixed part** (tools or system prompt), or only in
+  the conversation, which is expected
+- what the differing value looks like (date/time, UUID, hex ID, long number), with a tip
+  to move it after the static part
+- a warning when the shared prefix is below the minimum cacheable length
+
+```bash
+# Two real request bodies, as logged by your app
+tokensaver cache-check request1.json request2.json
+
+# One system prompt per language, with the same tools in front
+tokensaver cache-check system.en.md system.de.md system.it.md --tools tools.json
+```
+
+Each input is a file or `-` (stdin, at most once). A JSON object with `tools`, `system`,
+`instructions`, `messages` or `input` is read as a request body (OpenAI Chat Completions,
+OpenAI Responses or Anthropic Messages). Anything else is read as a plain-text system
+prompt. JSON whitespace and indentation don't matter; content and key order do.
+
+| Option | What it does |
+|---|---|
+| `--tools` | Tool schemas (JSON file or `-`) to put in front of plain-text prompts. Request bodies use their own `tools`. |
+| `--min-tokens N` | Warn when the shared prefix is shorter than this. Default: 1,024, OpenAI's minimum for GPT-5.6 and later. Earlier models and other providers differ, so check their docs. `0` turns the warning off. |
+| `--model`, `-m` | Model to count tokens with. Default: `gpt-4o`. |
+| `--prices FILE` | Use your own `prices.json`. |
+| `--json` | Prints JSON instead of tables, for scripts and CI (see [JSON output](#json-output)). |
+
+The shared prefix is an upper bound. Providers cache up to set points (for example the
+end of a message), so the part actually cached can be shorter. See your provider's
+prompt-caching docs, for example
+[OpenAI's](https://developers.openai.com/api/docs/guides/prompt-caching).
+
 ### JSON output
 
 `--json` prints one JSON object and nothing else, so you can use tokensaver in scripts
@@ -291,6 +338,12 @@ For example, to fail a CI job when the safe fixes alone would save more than 50 
 ```bash
 saved=$(tokensaver optimize prompts/system.txt --json | jq .tokens_saved)
 [ "$saved" -le 50 ] || { echo "Prompt has $saved tokens of easy savings"; exit 1; }
+```
+
+Or to fail when two logged requests no longer share their fixed part:
+
+```bash
+tokensaver cache-check req1.json req2.json --json | jq -e '.fixed_part_differs | not'
 ```
 
 ### `tokensaver models` and `tokensaver version`
@@ -383,7 +436,8 @@ Please read this before relying on the numbers.
 
 - [ ] Calibrate the Claude and Gemini estimate factors against official token counters
 - [x] `--json` output for CI pipelines and scripts
-- [ ] Output-token and prompt-caching cost estimates
+- [x] Check that requests share a cacheable prefix (`tokensaver cache-check`)
+- [ ] Output-token and prompt-caching cost estimates (#15)
 - [x] Directory mode: scan all prompts in a project (`tokensaver scan`)
 - [ ] More rules: verbose markdown, long URLs, unused template variables
 - [ ] GitHub Action that comments token savings on pull requests

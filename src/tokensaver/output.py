@@ -13,6 +13,7 @@ from rich.text import Text
 from tokensaver.counter import TokenCount
 from tokensaver.optimizer import Finding, OptimizationResult
 from tokensaver.optimizer.base import Risk
+from tokensaver.prefix import PrefixCheck
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
 from tokensaver.request import Part, RequestBreakdown
 from tokensaver.scan import ScanResult
@@ -420,3 +421,100 @@ def render_request(console: Console, result: RequestBreakdown, table: PriceTable
         console.print(Text(ESTIMATE_NOTE, style="yellow"))
     console.print(Text(OVERHEAD_NOTE, style="dim"))
     console.print(prices_footer(table))
+
+
+PREFIX_NOTE = (
+    "Shared prefix is the most the cache could reuse. Providers cache up to set points "
+    "(for example message ends), so the cached part can be shorter."
+)
+DYNAMIC_HINT = (
+    "Values that change on every call (dates, times, IDs) break the cache for everything "
+    "after them. Move them after the static part, for example into the user message."
+)
+
+
+def _min_tokens_note(shared: int, min_tokens: int) -> str:
+    return (
+        f"The shared prefix ({shared:,} tokens) is below {min_tokens:,}, the minimum "
+        "cacheable prefix on OpenAI GPT-5.6+ (earlier models and other providers vary), "
+        "so it may not be cached at all."
+    )
+
+
+def _prefix_table(result: PrefixCheck) -> Table:
+    out = Table(title="Each request: shared prefix + the rest", box=box.SIMPLE_HEAVY)
+    out.add_column("Request", no_wrap=True, overflow="ellipsis", max_width=40)
+    out.add_column("Tokens", justify="right", no_wrap=True)
+    out.add_column("Shared prefix", justify="right", no_wrap=True)
+    out.add_column("After it", justify="right", no_wrap=True)
+    for request in result.requests:
+        out.add_row(
+            Text(request.source),
+            _part_tokens(request.tokens, result.exact),
+            _part_tokens(request.shared_tokens, result.exact),
+            _part_tokens(request.rest_tokens, result.exact),
+        )
+    return out
+
+
+def _differences_table(result: PrefixCheck) -> Table:
+    out = Table(title="Where each request leaves the shared prefix", box=box.SIMPLE_HEAVY)
+    out.add_column("Request", no_wrap=True, overflow="ellipsis", max_width=30)
+    out.add_column("Part", no_wrap=True)
+    out.add_column("Line:col", justify="right", no_wrap=True)
+    out.add_column("Text there", overflow="fold")
+    out.add_column("Looks like", no_wrap=True)
+    for diff in result.differences:
+        if diff.part is None:
+            out.add_row(Text(diff.source), Text("(request ends)", style="dim"), "", "", "")
+            continue
+        out.add_row(
+            Text(diff.source),
+            Text(diff.part, style="red" if diff.fixed else ""),
+            f"{diff.line}:{diff.column}" if diff.line else "role",
+            Text(diff.snippet) if diff.snippet else Text("(blank line)", style="dim"),
+            Text(diff.dynamic or "", style="yellow"),
+        )
+    return out
+
+
+def render_prefix(console: Console, result: PrefixCheck, min_tokens: int) -> None:
+    model = result.model
+    console.print(
+        Text.assemble(
+            ("tokensaver cache-check", "bold"), f"  {model.name} (", accuracy_label(model), ")"
+        )
+    )
+    console.print(_prefix_table(result))
+    shared = _part_tokens(result.shared_tokens, result.exact)
+    if result.identical:
+        console.print(
+            Text(f"All {len(result.requests)} requests are identical.", style="bold green")
+        )
+    else:
+        console.print(_differences_table(result))
+        if result.fixed_differs:
+            console.print(
+                Text(
+                    "The fixed part (tools or system prompt) differs between requests, so the "
+                    f"cache can reuse at most the first {shared} tokens.",
+                    style="bold red",
+                )
+            )
+        else:
+            console.print(
+                Text(
+                    "The fixed part is identical; the requests only differ from the "
+                    f"conversation on. Shared prefix: {shared} tokens.",
+                    style="bold green",
+                )
+            )
+        if any(d.dynamic for d in result.differences):
+            console.print(Text(DYNAMIC_HINT, style="yellow"))
+    if result.shared_tokens < min_tokens:
+        console.print(Text(_min_tokens_note(result.shared_tokens, min_tokens), style="yellow"))
+    if result.has_tools:
+        console.print(Text(TOOLS_NOTE, style="yellow"))
+    if not model.exact:
+        console.print(Text(ESTIMATE_NOTE, style="yellow"))
+    console.print(Text(PREFIX_NOTE, style="dim"))

@@ -40,7 +40,7 @@ from tokensaver.report import (
     request_report,
     scan_report,
 )
-from tokensaver.request import ToolsError, breakdown
+from tokensaver.request import ToolsError, breakdown, cache_estimate
 from tokensaver.scan import DEFAULT_PATTERNS, scan
 
 DEFAULT_MODEL = "gpt-4o"
@@ -267,6 +267,15 @@ def request_command(
             "for example the same message in different languages.",
         ),
     ] = None,
+    cache_hit_rate: Annotated[
+        float | None,
+        typer.Option(
+            help="Share of calls that read the fixed part from the prompt cache (0 to 1), "
+            "to show the average cost per call.",
+            min=0.0,
+            max=1.0,
+        ),
+    ] = None,
     model: ModelOpt = DEFAULT_MODEL,
     prices: PricesOpt = None,
     json_output: JsonOpt = False,
@@ -291,10 +300,11 @@ def request_command(
         )
     except ToolsError as error:
         raise _fail(str(error)) from None
+    cache = cache_estimate(result, cache_hit_rate)
     if json_output:
-        typer.echo(dumps(request_report(result, table)))
+        typer.echo(dumps(request_report(result, table, cache)))
     else:
-        render_request(_console(), result, table)
+        render_request(_console(), result, table, cache)
 
 
 @app.command(name="cache-check")

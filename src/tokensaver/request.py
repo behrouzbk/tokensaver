@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass
 
 from tokensaver.counter import count_tokens
-from tokensaver.pricing import ModelInfo
+from tokensaver.pricing import ModelInfo, cache_write_cost, cached_input_cost, input_cost
 
 
 class ToolsError(ValueError):
@@ -117,4 +117,57 @@ def breakdown(
         system=measure_part(*system, model) if system else None,
         tools=measure_tools(*tools, model) if tools else None,
         users=[measure_part(text, source, model) for text, source in users or []],
+    )
+
+
+@dataclass(frozen=True)
+class CacheEstimate:
+    """What the fixed part costs per call with prompt caching, for one model.
+
+    Only the fixed part is cached: it comes first in every request and is the same each
+    time. The user message is always billed at the normal input price.
+    """
+
+    tokens: int
+    uncached: float  # no caching: the normal input price
+    first_call: float  # the call that writes the fixed part to the cache
+    cached_call: float  # a later call that reads it from the cache
+    min_tokens: int | None  # the model's minimum cacheable length, if published
+    hit_rate: float | None = None  # share of calls that read from the cache, if given
+
+    @property
+    def below_minimum(self) -> bool:
+        """Too short to be cached at all, so every call pays the normal price."""
+        return self.min_tokens is not None and self.tokens < self.min_tokens
+
+    @property
+    def average(self) -> float | None:
+        """Average cost per call at `hit_rate`; None without a hit rate."""
+        if self.hit_rate is None:
+            return None
+        if self.below_minimum:
+            return self.uncached
+        return self.hit_rate * self.cached_call + (1 - self.hit_rate) * self.first_call
+
+    @property
+    def saving_percent(self) -> float:
+        """How much cheaper a cached call's fixed part is than an uncached one."""
+        if self.below_minimum or not self.uncached:
+            return 0.0
+        return 100 * (1 - self.cached_call / self.uncached)
+
+
+def cache_estimate(result: RequestBreakdown, hit_rate: float | None = None) -> CacheEstimate | None:
+    """Fixed-part cost with prompt caching; None when the model has no caching price."""
+    model = result.model
+    if not model.caches:
+        return None
+    tokens = result.fixed_tokens
+    return CacheEstimate(
+        tokens=tokens,
+        uncached=input_cost(tokens, model),
+        first_call=cache_write_cost(tokens, model),
+        cached_call=cached_input_cost(tokens, model),
+        min_tokens=model.min_cacheable_tokens,
+        hit_rate=hit_rate,
     )

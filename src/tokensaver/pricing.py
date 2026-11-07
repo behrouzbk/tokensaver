@@ -41,6 +41,18 @@ class ModelInfo:
     estimate_factor: float
     source_url: str
     notes: str = ""
+    cached_input_per_1m: float | None = None  # cache-read price; None: no caching price known
+    cache_write_per_1m: float | None = None  # None: writes cost the normal input price
+    min_cacheable_tokens: int | None = None  # None: not published (or depends on the request)
+
+    @property
+    def caches(self) -> bool:
+        return self.cached_input_per_1m is not None
+
+    @property
+    def write_per_1m(self) -> float:
+        """What writing to the cache costs per 1M tokens (the default, shortest cache)."""
+        return self.input_per_1m if self.cache_write_per_1m is None else self.cache_write_per_1m
 
 
 @dataclass(frozen=True)
@@ -60,6 +72,24 @@ def _require(entry: dict, field: str, model: str) -> object:
     if field not in entry:
         raise PriceDataError(f"Model '{model}' is missing '{field}'.")
     return entry[field]
+
+
+def _optional_price(entry: dict, field: str, model: str) -> float | None:
+    if entry.get(field) is None:
+        return None
+    value = float(entry[field])
+    if value < 0:
+        raise PriceDataError(f"Model '{model}' has a negative {field}.")
+    return value
+
+
+def _optional_tokens(entry: dict, field: str, model: str) -> int | None:
+    value = entry.get(field)
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise PriceDataError(f"Model '{model}' needs a whole, non-negative {field}.")
+    return value
 
 
 def _parse_model(name: str, entry: dict) -> ModelInfo:
@@ -83,6 +113,9 @@ def _parse_model(name: str, entry: dict) -> ModelInfo:
         estimate_factor=factor,
         source_url=str(_require(entry, "source_url", name)),
         notes=str(entry.get("notes", "")),
+        cached_input_per_1m=_optional_price(entry, "cached_input_per_1m", name),
+        cache_write_per_1m=_optional_price(entry, "cache_write_per_1m", name),
+        min_cacheable_tokens=_optional_tokens(entry, "min_cacheable_tokens", name),
     )
 
 
@@ -118,3 +151,14 @@ def _load_default() -> PriceTable:
 def input_cost(tokens: int, model: ModelInfo) -> float:
     """Dollar cost of sending `tokens` input tokens to `model`."""
     return tokens * model.input_per_1m / TOKENS_PER_PRICE_UNIT
+
+
+def cached_input_cost(tokens: int, model: ModelInfo) -> float:
+    """Dollar cost of reading `tokens` from the cache (the uncached price if none is known)."""
+    price = model.input_per_1m if model.cached_input_per_1m is None else model.cached_input_per_1m
+    return tokens * price / TOKENS_PER_PRICE_UNIT
+
+
+def cache_write_cost(tokens: int, model: ModelInfo) -> float:
+    """Dollar cost of writing `tokens` to the cache."""
+    return tokens * model.write_per_1m / TOKENS_PER_PRICE_UNIT

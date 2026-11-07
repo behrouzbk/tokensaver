@@ -13,7 +13,7 @@ You will:
    (`tokensaver cache-check`).
 
 The expected numbers are for tokensaver **0.4.0** on `gpt-4o` (exact counts), with prices
-as of 2026-10-26. Token counts stay the same on later versions; dollar amounts change
+as of 2026-11-07. Token counts stay the same on later versions; dollar amounts change
 when prices are updated.
 
 ## Files used
@@ -243,6 +243,23 @@ tokensaver request --system support_bot_prompt.txt --tools tools.json -m claude-
 
 ✅ `(estimated)` in the header, System prompt `~646`, Tool schemas `~213`, Fixed part
 `~859`, and a yellow note explaining the estimate.
+
+```powershell
+# What prompt caching does to the fixed part (needs 0.5.0 or newer)
+tokensaver request --system support_bot_prompt.txt --tools tools.json -m claude-sonnet-5-5 --cache-hit-rate 0.9
+```
+
+✅ A **Fixed part with prompt caching** table, per 1,000 calls: No caching `$1.72`, First
+call `$2.15` (writing the cache costs 1.25×), Later calls `$0.0859`, and Average at 90%
+cache hits `$0.2921`. Below it: "A cached call pays 95% less for the fixed part."
+
+```powershell
+# A fixed part too short to be cached (needs 0.5.0 or newer)
+tokensaver request --system support_bot_prompt.txt --tools tools.json -m gpt-6.1-sol
+```
+
+✅ A yellow note instead of the caching table: the fixed part (`~573` tokens) is below
+gpt-6.1-sol's minimum of 1,024 tokens, so every call pays the full input price.
 
 ```powershell
 # Errors: each prints a red "Error:" and stops

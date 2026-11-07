@@ -136,3 +136,61 @@ def test_long_preview_is_cut() -> None:
 def test_file_is_labelled_by_name() -> None:
     result = breakdown(GPT4O, system=("x", "s"), users=[("Hello", "question.txt")])
     assert result.users[0].label == "question.txt"
+
+
+# --- prompt caching ------------------------------------------------------------
+
+
+def _fixed(model, tokens_text: str = "word " * 2000):
+    return breakdown(model, system=(tokens_text, "system.md"), users=[("hi", "text")])
+
+
+def test_no_estimate_without_cache_prices() -> None:
+    from dataclasses import replace
+
+    from tokensaver.request import cache_estimate
+
+    model = replace(GPT4O, cached_input_per_1m=None)
+    assert cache_estimate(_fixed(model)) is None
+
+
+def test_cache_estimate_costs() -> None:
+    from tokensaver.pricing import cache_write_cost, cached_input_cost, input_cost
+    from tokensaver.request import cache_estimate
+
+    result = _fixed(SONNET)
+    cache = cache_estimate(result)
+    tokens = result.fixed_tokens
+    assert cache.uncached == pytest.approx(input_cost(tokens, SONNET))
+    assert cache.first_call == pytest.approx(cache_write_cost(tokens, SONNET))
+    assert cache.cached_call == pytest.approx(cached_input_cost(tokens, SONNET))
+    assert cache.first_call > cache.uncached > cache.cached_call
+    assert cache.saving_percent == pytest.approx(95)
+    assert cache.average is None
+
+
+def test_cache_average_at_hit_rate() -> None:
+    from tokensaver.request import cache_estimate
+
+    cache = cache_estimate(_fixed(SONNET), hit_rate=0.9)
+    expected = 0.9 * cache.cached_call + 0.1 * cache.first_call
+    assert cache.average == pytest.approx(expected)
+    assert cache_estimate(_fixed(SONNET), hit_rate=0.0).average == pytest.approx(cache.first_call)
+
+
+def test_below_minimum_is_never_cached() -> None:
+    from tokensaver.request import cache_estimate
+
+    gpt6 = TABLE.get("gpt-6.1-sol")
+    cache = cache_estimate(_fixed(gpt6, "Be brief."), hit_rate=1.0)
+    assert cache.below_minimum
+    assert cache.average == pytest.approx(cache.uncached)
+    assert cache.saving_percent == 0
+
+
+def test_unknown_minimum_is_not_below() -> None:
+    from tokensaver.request import cache_estimate
+
+    cache = cache_estimate(_fixed(GPT4O, "Be brief."))
+    assert cache.min_tokens is None
+    assert not cache.below_minimum

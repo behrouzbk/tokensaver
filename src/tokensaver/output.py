@@ -15,7 +15,7 @@ from tokensaver.optimizer import Finding, OptimizationResult
 from tokensaver.optimizer.base import Risk
 from tokensaver.prefix import PrefixCheck
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
-from tokensaver.request import Part, RequestBreakdown
+from tokensaver.request import CacheEstimate, Part, RequestBreakdown
 from tokensaver.scan import ScanResult
 
 CALLS = 1_000  # costs are also shown per this many calls, where they become readable
@@ -112,13 +112,16 @@ def render_models(console: Console, table: PriceTable) -> None:
     out.add_column("Provider")
     out.add_column("Input / 1M", justify="right")
     out.add_column("Output / 1M", justify="right")
+    out.add_column("Cached in / 1M", justify="right")
     out.add_column("Count")
     for model in table.models.values():
+        cached = model.cached_input_per_1m
         out.add_row(
             model.name,
             model.provider,
             usd(model.input_per_1m),
             usd(model.output_per_1m),
+            usd(cached) if cached is not None else Text("-", style="dim"),
             accuracy_label(model),
         )
     console.print(out)
@@ -394,7 +397,74 @@ def _share_range(result: RequestBreakdown) -> str:
     return low if low == high else f"{low} to {high}"
 
 
-def render_request(console: Console, result: RequestBreakdown, table: PriceTable) -> None:
+def _hit_rate_label(rate: float) -> str:
+    percent = rate * 100
+    return f"{percent:.0f}%" if percent == round(percent) else f"{percent:.1f}%"
+
+
+def _cache_table(cache: CacheEstimate) -> Table:
+    out = Table(title="Fixed part with prompt caching", box=box.SIMPLE_HEAVY)
+    out.add_column("Call", no_wrap=True)
+    out.add_column("$/call", justify="right", no_wrap=True)
+    out.add_column(f"$/{CALLS // 1000}k calls", justify="right", no_wrap=True)
+    rows = [
+        ("No caching", cache.uncached),
+        ("First call (writes the cache)", cache.first_call),
+        ("Later calls (read from the cache)", cache.cached_call),
+    ]
+    for label, cost in rows:
+        out.add_row(label, usd(cost), usd(cost * CALLS))
+    if cache.average is not None and cache.hit_rate is not None:
+        out.add_section()
+        out.add_row(
+            Text(f"Average at {_hit_rate_label(cache.hit_rate)} cache hits", style="bold"),
+            Text(usd(cache.average), style="bold"),
+            Text(usd(cache.average * CALLS), style="bold"),
+        )
+    return out
+
+
+def _render_cache(console: Console, result: RequestBreakdown, cache: CacheEstimate) -> None:
+    model = result.model
+    tokens = _part_tokens(cache.tokens, result.fixed_exact)
+    if cache.below_minimum:
+        console.print(
+            Text(
+                f"Prompt caching: the fixed part ({tokens} tokens) is below {model.name}'s "
+                f"minimum of {cache.min_tokens:,} tokens, so it is not cached and every call "
+                "pays the full input price.",
+                style="yellow",
+            )
+        )
+        return
+    console.print(_cache_table(cache))
+    console.print(
+        Text(
+            f"A cached call pays {cache.saving_percent:.0f}% less for the fixed part. The user "
+            "message is always billed at the full input price.",
+            style="bold",
+        )
+    )
+    if cache.min_tokens is None:
+        console.print(
+            Text(
+                f"{model.provider} publishes no fixed minimum cacheable length for {model.name}; "
+                "check that your fixed part is long enough to be cached.",
+                style="dim",
+            )
+        )
+    if cache.hit_rate is None:
+        console.print(
+            Text("Add --cache-hit-rate 0.9 (for example) to see the average per call.", style="dim")
+        )
+
+
+def render_request(
+    console: Console,
+    result: RequestBreakdown,
+    table: PriceTable,
+    cache: CacheEstimate | None = None,
+) -> None:
     model = result.model
     console.print(
         Text.assemble(
@@ -415,6 +485,8 @@ def render_request(console: Console, result: RequestBreakdown, table: PriceTable
         console.print(
             Text("Add --user to see what share of each request the fixed part is.", style="dim")
         )
+    if cache is not None:
+        _render_cache(console, result, cache)
     if result.tools is not None:
         console.print(Text(TOOLS_NOTE, style="yellow"))
     if not model.exact:

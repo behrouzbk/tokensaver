@@ -8,6 +8,8 @@ from tokensaver.counter import ENCODINGS_DIR
 from tokensaver.pricing import (
     PriceDataError,
     UnknownModelError,
+    cache_write_cost,
+    cached_input_cost,
     input_cost,
     load_prices,
     parse_prices,
@@ -87,6 +89,10 @@ def test_exact_model_ignores_estimate_factor() -> None:
         (lambda r: r["models"]["demo-model"].pop("estimate_factor"), "estimate_factor"),
         (lambda r: r["models"]["demo-model"].update(input_per_1m=-1), "negative"),
         (lambda r: r["models"]["demo-model"].update(estimate_factor=0), "positive"),
+        (lambda r: r["models"]["demo-model"].update(cached_input_per_1m=-0.1), "negative"),
+        (lambda r: r["models"]["demo-model"].update(cache_write_per_1m=-1), "negative"),
+        (lambda r: r["models"]["demo-model"].update(min_cacheable_tokens=1.5), "whole"),
+        (lambda r: r["models"]["demo-model"].update(min_cacheable_tokens=-1), "whole"),
     ],
 )
 def test_invalid_price_data_is_rejected(change, message: str) -> None:
@@ -94,3 +100,40 @@ def test_invalid_price_data_is_rejected(change, message: str) -> None:
     change(raw)
     with pytest.raises(PriceDataError, match=message):
         parse_prices(raw)
+
+
+# --- prompt caching ------------------------------------------------------------
+
+
+def test_caching_fields_are_optional() -> None:
+    model = parse_prices(VALID).get("demo-model")
+    assert not model.caches
+    assert model.min_cacheable_tokens is None
+    assert cached_input_cost(1_000_000, model) == pytest.approx(2.0)  # no discount known
+    assert cache_write_cost(1_000_000, model) == pytest.approx(2.0)
+
+
+def test_caching_fields_are_parsed() -> None:
+    raw = copy.deepcopy(VALID)
+    raw["models"]["demo-model"].update(
+        cached_input_per_1m=0.2, cache_write_per_1m=2.5, min_cacheable_tokens=512
+    )
+    model = parse_prices(raw).get("demo-model")
+    assert model.caches
+    assert cached_input_cost(1_000_000, model) == pytest.approx(0.2)
+    assert cache_write_cost(1_000_000, model) == pytest.approx(2.5)
+    assert model.min_cacheable_tokens == 512
+
+
+def test_cache_write_defaults_to_input_price() -> None:
+    raw = copy.deepcopy(VALID)
+    raw["models"]["demo-model"]["cached_input_per_1m"] = 1.0
+    model = parse_prices(raw).get("demo-model")
+    assert model.write_per_1m == model.input_per_1m
+
+
+def test_bundled_models_all_have_cache_prices() -> None:
+    for model in load_prices().models.values():
+        assert model.caches, model.name
+        assert 0 < model.cached_input_per_1m < model.input_per_1m, model.name
+        assert model.write_per_1m >= model.input_per_1m, model.name

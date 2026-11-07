@@ -44,7 +44,7 @@ def test_count_text(run) -> None:
     assert "gpt-4o" in result.output
     assert "exact" in result.output
     assert "Tokens" in result.output and " 4 " in result.output
-    assert "2026-10-26" in result.output
+    assert "2026-11-07" in result.output
 
 
 def test_count_file(run, messy_file: Path) -> None:
@@ -123,7 +123,7 @@ def test_compare_all_models(run, messy_file: Path) -> None:
     for name in load_prices().models:
         assert name in result.output
     assert "estimated" in result.output and "exact" in result.output
-    assert "2026-10-26" in result.output
+    assert "2026-11-07" in result.output
 
 
 def test_compare_selected_models_sorted_by_cost(run) -> None:
@@ -303,7 +303,7 @@ def test_count_json(run) -> None:
         "source": "text",
         "model": "gpt-4o",
         "exact": True,
-        "prices_last_updated": "2026-10-26",
+        "prices_last_updated": "2026-11-07",
         "tokens": 4,
         "cost_per_call": 0.00001,
     }
@@ -580,3 +580,57 @@ def test_cache_check_bad_tools_in_body(run, tmp_path: Path, messy_file: Path) ->
     result = run("cache-check", str(bad), str(messy_file))
     assert result.exit_code == 2
     assert "bad.json" in result.output
+
+
+# --- request: prompt caching ---------------------------------------------------
+
+
+def test_request_shows_caching(run, messy_file: Path) -> None:
+    result = run("request", "--system", str(messy_file), "--user", "hi")
+    assert result.exit_code == 0
+    out = result.output
+    assert "Fixed part with prompt caching" in out
+    assert "Later calls (read from the cache)" in out
+    assert "50% less" in out  # gpt-4o cached input is half price
+    assert "--cache-hit-rate" in out
+
+
+def test_request_cache_hit_rate(run, messy_file: Path) -> None:
+    result = run("request", "--system", str(messy_file), "--cache-hit-rate", "0.9")
+    assert result.exit_code == 0
+    assert "Average at 90% cache hits" in result.output
+
+
+def test_request_cache_hit_rate_out_of_range(run, messy_file: Path) -> None:
+    result = run("request", "--system", str(messy_file), "--cache-hit-rate", "1.5")
+    assert result.exit_code == 2
+
+
+def test_request_below_minimum(run, messy_file: Path) -> None:
+    result = run("request", "--system", str(messy_file), "-m", "gpt-6.1-sol")
+    assert result.exit_code == 0
+    assert "below gpt-6.1-sol's minimum of 1,024 tokens" in result.output
+    assert "Fixed part with prompt caching" not in result.output
+
+
+def test_request_json_caching(run, tmp_path: Path) -> None:
+    long_prompt = tmp_path / "long.txt"
+    long_prompt.write_text(MESSY * 20, encoding="utf-8")  # above the 512-token minimum
+    args = ("request", "--system", str(long_prompt), "-m", "claude-sonnet-5-5")
+    data = json.loads(run(*args, "--cache-hit-rate", "0.5", "--json").output)
+    cache = data["caching"]
+    assert cache["below_minimum"] is False
+    assert cache["cached_input_per_1m"] == 0.1
+    assert cache["cache_write_per_1m"] == 2.5
+    assert cache["min_cacheable_tokens"] == 512
+    assert cache["hit_rate"] == 0.5
+    costs = cache["fixed_cost_per_call"]
+    assert costs["first_call"] > costs["uncached"] > costs["cached_call"]
+    assert costs["average"] == pytest.approx((costs["first_call"] + costs["cached_call"]) / 2)
+    assert cache["cached_call_saving_percent"] == pytest.approx(95)
+
+
+def test_models_lists_cached_price(run) -> None:
+    result = run("models")
+    assert result.exit_code == 0
+    assert "Cached in / 1M" in result.output

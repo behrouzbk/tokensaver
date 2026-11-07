@@ -238,11 +238,30 @@ tokensaver request --system system.md --tools tools.json \
 You get one table for the fixed part (each part's tokens and cost, and the total) and one
 row per user message with the full request size and the fixed part's share of it.
 
+**With prompt caching.** The fixed part comes first in every request and is the same each
+time, so providers can cache it. A third table shows what the fixed part costs per call:
+
+- with no caching
+- on the first call, which writes it to the cache (1.25× on GPT-6 and Claude, the normal
+  price elsewhere)
+- on later calls, which read it from the cache (from 2.5% of the input price on Claude
+  Fable 5.1 to 50% on `gpt-4o`)
+- on average, if you pass `--cache-hit-rate` (for example `0.9` for 9 cached calls in 10)
+
+If the fixed part is shorter than the model's minimum cacheable length, the table is
+replaced by a note: that prefix is never cached, so every call pays full price. The
+user message is always billed at the normal input price.
+
+```bash
+tokensaver request --system system.md --tools tools.json -m claude-sonnet-5-5 --cache-hit-rate 0.9
+```
+
 | Option | What it does |
 |---|---|
 | `--system` | System prompt: a file, `-` for stdin, or the text itself. |
 | `--tools` | Tool schemas as JSON: a file or `-`. Accepts a list of tools (OpenAI or Anthropic format), a single tool, or a whole request body with a `tools` key. |
 | `--user` | A user message: a file, `-` or the text itself. Repeat it to compare several. Optional. |
+| `--cache-hit-rate` | Share of calls that read the fixed part from the prompt cache, from 0 to 1. Adds the average cost per call. Optional. |
 | `--model`, `-m` | Model to measure on. Default: `gpt-4o`. |
 | `--prices FILE` | Use your own `prices.json`. |
 | `--json` | Prints JSON instead of tables, for scripts and CI (see [JSON output](#json-output)). |
@@ -315,7 +334,7 @@ tokensaver optimize prompt.txt --json
   "source": "prompt.txt",
   "model": "gpt-4o",
   "exact": true,
-  "prices_last_updated": "2026-10-26",
+  "prices_last_updated": "2026-11-07",
   "tokens_before": 834,
   "tokens_after": 772,
   "tokens_saved": 62,
@@ -374,32 +393,38 @@ line.)
 
 ## Supported models
 
-Prices are USD per 1M tokens, standard tier, as of **2026-10-26**. They live in
+Prices are USD per 1M tokens, standard tier, as of **2026-11-07**. They live in
 [`src/tokensaver/data/prices.json`](https://github.com/behrouzbk/tokensaver/blob/main/src/tokensaver/data/prices.json) with a source URL for
 each model. Edit that file, or pass your own with `--prices my_prices.json`.
 
-| Model | Provider | Input / 1M | Output / 1M | Token count |
-|---|---|---:|---:|---|
-| gpt-6-astra | OpenAI | $10.00 | $50.00 | estimated |
-| gpt-6.1-sol | OpenAI | $2.00 | $10.00 | estimated |
-| gpt-6-luna | OpenAI | $0.10 | $0.50 | estimated |
-| gpt-5.5 | OpenAI | $5.00 | $30.00 | **exact** |
-| gpt-5.4-mini | OpenAI | $0.75 | $4.50 | **exact** |
-| gpt-5-mini | OpenAI | $0.25 | $2.00 | **exact** |
-| gpt-4.1 | OpenAI | $2.00 | $8.00 | **exact** |
-| gpt-4.1-mini | OpenAI | $0.40 | $1.60 | **exact** |
-| gpt-4o | OpenAI | $2.50 | $10.00 | **exact** |
-| gpt-4o-mini | OpenAI | $0.15 | $0.60 | **exact** |
-| claude-fable-5-1 | Anthropic | $10.00 | $50.00 | estimated |
-| claude-opus-5-5 | Anthropic | $4.00 | $20.00 | estimated |
-| claude-sonnet-5-5 | Anthropic | $2.00 | $10.00 | estimated |
-| claude-haiku-5-5 | Anthropic | $0.10 | $0.50 | estimated |
-| claude-haiku-4-5 | Anthropic | $1.00 | $5.00 | estimated |
-| gemini-4-argon | Google | $2.00 | $10.00 | estimated |
-| gemini-3.8-flash | Google | $0.75 | $3.75 | estimated |
-| gemini-3.1-pro-preview | Google | $2.00 | $12.00 | estimated |
-| gemini-2.5-flash | Google | $0.30 | $2.50 | estimated |
-| gemini-2.5-flash-lite | Google | $0.10 | $0.40 | estimated |
+**Cached input** is what a token read from the prompt cache costs. **Min. cacheable** is the
+shortest prefix the provider caches; `-` means it isn't published (on OpenAI models before
+GPT-5.6 it depends on the request settings). Writing to the cache costs 1.25× the input price
+on GPT-6 and Claude models (the default, shortest cache) and the normal input price
+elsewhere: `cache_write_per_1m` in `prices.json`.
+
+| Model | Provider | Input / 1M | Output / 1M | Cached input / 1M | Min. cacheable | Token count |
+|---|---|---:|---:|---:|---:|---|
+| gpt-6-astra | OpenAI | $10.00 | $50.00 | $1.00 | 1,024 | estimated |
+| gpt-6.1-sol | OpenAI | $2.00 | $10.00 | $0.10 | 1,024 | estimated |
+| gpt-6-luna | OpenAI | $0.10 | $0.50 | $0.01 | 1,024 | estimated |
+| gpt-5.5 | OpenAI | $5.00 | $30.00 | $0.50 | - | **exact** |
+| gpt-5.4-mini | OpenAI | $0.75 | $4.50 | $0.075 | - | **exact** |
+| gpt-5-mini | OpenAI | $0.25 | $2.00 | $0.025 | - | **exact** |
+| gpt-4.1 | OpenAI | $2.00 | $8.00 | $0.50 | - | **exact** |
+| gpt-4.1-mini | OpenAI | $0.40 | $1.60 | $0.10 | - | **exact** |
+| gpt-4o | OpenAI | $2.50 | $10.00 | $1.25 | - | **exact** |
+| gpt-4o-mini | OpenAI | $0.15 | $0.60 | $0.075 | - | **exact** |
+| claude-fable-5-1 | Anthropic | $10.00 | $50.00 | $0.25 | 512 | estimated |
+| claude-opus-5-5 | Anthropic | $4.00 | $20.00 | $0.20 | 512 | estimated |
+| claude-sonnet-5-5 | Anthropic | $2.00 | $10.00 | $0.10 | 512 | estimated |
+| claude-haiku-5-5 | Anthropic | $0.10 | $0.50 | $0.01 | 512 | estimated |
+| claude-haiku-4-5 | Anthropic | $1.00 | $5.00 | $0.10 | 4,096 | estimated |
+| gemini-4-argon | Google | $2.00 | $10.00 | $0.10 | 4,096 | estimated |
+| gemini-3.8-flash | Google | $0.75 | $3.75 | $0.075 | 4,096 | estimated |
+| gemini-3.1-pro-preview | Google | $2.00 | $12.00 | $0.20 | 4,096 | estimated |
+| gemini-2.5-flash | Google | $0.30 | $2.50 | $0.03 | 2,048 | estimated |
+| gemini-2.5-flash-lite | Google | $0.10 | $0.40 | $0.01 | - | estimated |
 
 Run `tokensaver models` to see the list for your installed version.
 
@@ -415,9 +440,14 @@ Please read this before relying on the numbers.
   especially for code and non-English text. For exact counts, use the provider's own
   token-counting API.
 - **Input cost only.** `count`, `compare`, `optimize`, `scan` and `request` price the
-  prompt you send. Output
-  tokens, cached-input discounts, batch discounts and long-context surcharges (for example
+  prompt you send. Output tokens, batch discounts and long-context surcharges (for example
   above 200K tokens on Gemini 3.1 Pro or 100K on Claude Haiku 5.5) are not included.
+  Prompt-caching prices are used only by `request`, and only for the fixed part.
+- **Caching estimates are estimates.** They assume the whole fixed part is cached and use
+  the default (shortest) cache: 5 minutes on Claude, 30 minutes on GPT-6. Longer caches cost
+  more to write, Gemini's explicit caching adds a storage fee, and whether a call actually
+  hits the cache depends on traffic, routing and expiry. Use `tokensaver cache-check` to
+  make sure the fixed part is identical between calls.
 - **Prices go stale.** Check the `last_updated` date in the output. Some listed prices are
   scheduled to change (see the `notes` field in `prices.json`).
 - **Languages.** Token counting and the `json`, `whitespace` and `duplicates` rules work
@@ -437,7 +467,8 @@ Please read this before relying on the numbers.
 - [ ] Calibrate the Claude and Gemini estimate factors against official token counters
 - [x] `--json` output for CI pipelines and scripts
 - [x] Check that requests share a cacheable prefix (`tokensaver cache-check`)
-- [ ] Output-token and prompt-caching cost estimates (#15)
+- [x] Prompt-caching cost estimates for the fixed part (`tokensaver request`)
+- [ ] Output-token cost estimates
 - [x] Directory mode: scan all prompts in a project (`tokensaver scan`)
 - [ ] More rules: verbose markdown, long URLs, unused template variables
 - [ ] GitHub Action that comments token savings on pull requests

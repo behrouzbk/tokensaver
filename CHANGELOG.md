@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `request` shows what the fixed part costs with prompt caching: with no caching, on the
+  first call (cache write), on later calls (cache read) and, with `--cache-hit-rate`, on
+  average. When the fixed part is below the model's minimum cacheable length, it says the
+  prefix is never cached. `--json` has a new `caching` object (#15).
+- `prices.json`: `cached_input_per_1m` for every model, plus `cache_write_per_1m` and
+  `min_cacheable_tokens` where the provider publishes them. `tokensaver models` shows the
+  cached input price.
+
+### Changed
+- Prices checked against the OpenAI, Anthropic and Google pricing pages on 2026-11-07.
+  Input and output prices are unchanged.
+
 ## [0.4.0] - 2026-11-07
 
 ### Added

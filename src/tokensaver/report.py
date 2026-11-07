@@ -12,7 +12,7 @@ from tokensaver.counter import TokenCount
 from tokensaver.optimizer import Finding, OptimizationResult
 from tokensaver.prefix import PrefixCheck
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
-from tokensaver.request import Part, RequestBreakdown
+from tokensaver.request import CacheEstimate, Part, RequestBreakdown
 from tokensaver.scan import ScanResult
 
 
@@ -134,7 +134,28 @@ def _part(part: Part, model: ModelInfo) -> dict:
     }
 
 
-def request_report(result: RequestBreakdown, table: PriceTable) -> dict:
+def _cache(cache: CacheEstimate | None, model: ModelInfo) -> dict | None:
+    if cache is None:
+        return None
+    return {
+        "cached_input_per_1m": model.cached_input_per_1m,
+        "cache_write_per_1m": model.write_per_1m,
+        "min_cacheable_tokens": cache.min_tokens,
+        "below_minimum": cache.below_minimum,
+        "hit_rate": cache.hit_rate,
+        "fixed_cost_per_call": {
+            "uncached": _dollars(cache.uncached),
+            "first_call": _dollars(cache.first_call),
+            "cached_call": _dollars(cache.cached_call),
+            "average": _dollars(cache.average) if cache.average is not None else None,
+        },
+        "cached_call_saving_percent": round(cache.saving_percent, 2),
+    }
+
+
+def request_report(
+    result: RequestBreakdown, table: PriceTable, cache: CacheEstimate | None = None
+) -> dict:
     model = result.model
     tools = result.tools
     return {
@@ -156,6 +177,7 @@ def request_report(result: RequestBreakdown, table: PriceTable) -> dict:
             }
             for user in result.users
         ],
+        "caching": _cache(cache, model),
     }
 
 

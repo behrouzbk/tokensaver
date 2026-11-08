@@ -19,9 +19,11 @@
   </picture>
 </a>
 
-"Where is my order?" is 8 tokens in English and 47 in Punjabi on Claude Sonnet 5.5, but 6
-and 13 on Gemini 3.8 Flash. The same question can cost very different amounts depending on
-the language and the provider, and tokensaver shows you how much before you pay for it.
+The same support-bot system prompt is 393 tokens in English and 2,565 in Punjabi on Claude
+Sonnet 5.5, counted with Anthropic's own token counter: 6.5× the cost for the same text. On
+Gemini 3.8 Flash it is 286 and 717. The same prompt can cost very different amounts
+depending on the language and the provider, and tokensaver shows you how much before you
+pay for it.
 
 ### Try it in 30 seconds
 

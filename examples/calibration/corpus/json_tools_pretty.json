@@ -1,0 +1,49 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "get_order_status",
+      "description": "Look up the current status of a customer's order by its order number.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "The order number, e.g. A-10293."
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "create_refund",
+      "description": "Start a refund for an order. Only call this after the customer confirms.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "damaged",
+              "late",
+              "wrong_item",
+              "other"
+            ]
+          }
+        },
+        "required": [
+          "order_id",
+          "reason"
+        ]
+      }
+    }
+  }
+]

@@ -76,3 +76,63 @@ def test_exact_models_match_tiktoken_model_map() -> None:
     for model in load_prices().models.values():
         if model.exact:
             assert tiktoken.encoding_name_for_model(model.name) == model.tokenizer, model.name
+
+
+# --- script factors ------------------------------------------------------------
+
+
+def _with_factors(name: str = "claude-sonnet-5-5", **factors: float):
+    from dataclasses import replace
+
+    model = load_prices().get(name)
+    return replace(model, script_factors=tuple(factors.items())) if factors else model
+
+
+def test_script_runs_keep_neutral_characters_in_the_run() -> None:
+    from tokensaver.counter import script_runs
+
+    runs = script_runs("Hello, world! ਮੇਰਾ ਆਰਡਰ 123? Bye.")
+    assert [s for s, _ in runs] == ["other", "Gurmukhi", "other"]
+    assert "".join(part for _, part in runs) == "Hello, world! ਮੇਰਾ ਆਰਡਰ 123? Bye."
+    assert runs[1][1].endswith("123? ")
+
+
+def test_han_is_japanese_only_with_kana() -> None:
+    from tokensaver.counter import script_runs
+
+    assert {s for s, _ in script_runs("始终以格式回答。")} == {"Chinese"}
+    assert {s for s, _ in script_runs("常に形式で回答してください。")} == {"Japanese"}
+
+
+def test_text_without_measured_scripts_is_unchanged() -> None:
+    model = _with_factors(Gurmukhi=3.9)
+    text = 'Answer in JSON: {"a": 1}\nÜbersetze das bitte. def f(x): return x'
+    raw = count_raw(text, model.tokenizer)
+    assert count_tokens(text, model).tokens == round(raw * model.estimate_factor)
+
+
+def test_script_factor_scales_that_script_only() -> None:
+    model = _with_factors(Gurmukhi=3.9)
+    punjabi = "ਮੇਰਾ ਆਰਡਰ ਕਿੱਥੇ ਹੈ?"
+    english = "Where is my order?"
+    assert count_tokens(punjabi, model).tokens == round(count_raw(punjabi, "o200k_base") * 3.9)
+    mixed = count_tokens(english + " " + punjabi, model).tokens
+    expected = (
+        count_raw(english + " ", "o200k_base") * model.estimate_factor
+        + count_raw(punjabi, "o200k_base") * 3.9
+    )
+    assert mixed == round(expected)
+
+
+def test_unmeasured_script_uses_the_default_factor() -> None:
+    model = _with_factors(Gurmukhi=3.9)
+    greek = "Απάντα πάντα σε μορφή JSON."
+    raw = count_raw(greek, model.tokenizer)
+    assert count_tokens(greek, model).tokens == round(raw * model.estimate_factor)
+
+
+def test_bundled_claude_models_have_script_factors() -> None:
+    for model in load_prices().models.values():
+        if model.provider == "Anthropic":
+            factors = dict(model.script_factors)
+            assert factors["Gurmukhi"] > factors["Chinese"] > 1, model.name

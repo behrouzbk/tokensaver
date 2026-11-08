@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Claude token estimates are now calibrated against Anthropic's token counter (#3). The
+  factors for English, code and JSON were already right and are unchanged. Text in
+  Arabic, Hebrew, Devanagari, Gurmukhi, Thai, Hangul, Cyrillic, Chinese or Japanese now
+  gets its own measured factor: before, Claude estimates for those scripts were up to 71%
+  too low (Punjabi), and 14-52% too low for most of the others. `prices.json` has a new
+  optional `script_factors` per model.
+
+### Added
+- `examples/calibration/`: the corpus, script and results behind the new factors.
+
 ### Added
 - `examples/behaviour-test/`: checks on a real model that the optimized support-bot
   prompt (431 → 310 tokens) behaves like the original, across 9 support cases. Both

@@ -1,5 +1,5 @@
 {
-  "_comment": "Prices in USD per 1M tokens, standard tier, short-context rates. Edit freely, then update last_updated. tokenizer + exact=true only for models tiktoken maps to that encoding; every other model needs an estimate_factor (multiplier on the tokenizer count). Caching: cached_input_per_1m is the cache-read price; cache_write_per_1m is the price of writing the default (shortest) cache and is left out when writes cost the normal input price; min_cacheable_tokens is left out when the provider does not publish one.",
+  "_comment": "Prices in USD per 1M tokens, standard tier, short-context rates. Edit freely, then update last_updated. tokenizer + exact=true only for models tiktoken maps to that encoding; every other model needs an estimate_factor (multiplier on the tokenizer count). Caching: cached_input_per_1m is the cache-read price; cache_write_per_1m is the price of writing the default (shortest) cache and is left out when writes cost the normal input price; min_cacheable_tokens is left out when the provider does not publish one. script_factors: measured estimate factors per writing system (Arabic, Hebrew, Devanagari, Gurmukhi, Thai, Hangul, Cyrillic, Chinese, Japanese); text in other scripts uses estimate_factor. See examples/calibration.",
   "last_updated": "2026-11-07",
   "models": {
     "gpt-6-astra": {
@@ -115,6 +115,17 @@
       "tokenizer": "o200k_base",
       "exact": false,
       "estimate_factor": 1.5,
+      "script_factors": {
+        "Arabic": 2.17,
+        "Hebrew": 1.86,
+        "Devanagari": 2.31,
+        "Gurmukhi": 3.9,
+        "Thai": 2.39,
+        "Hangul": 1.86,
+        "Cyrillic": 1.74,
+        "Chinese": 1.52,
+        "Japanese": 1.33
+      },
       "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
     },
     "claude-opus-5-5": {
@@ -127,6 +138,17 @@
       "tokenizer": "o200k_base",
       "exact": false,
       "estimate_factor": 1.5,
+      "script_factors": {
+        "Arabic": 2.17,
+        "Hebrew": 1.86,
+        "Devanagari": 2.31,
+        "Gurmukhi": 3.9,
+        "Thai": 2.39,
+        "Hangul": 1.86,
+        "Cyrillic": 1.74,
+        "Chinese": 1.52,
+        "Japanese": 1.33
+      },
       "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
     },
     "claude-sonnet-5-5": {
@@ -139,6 +161,17 @@
       "tokenizer": "o200k_base",
       "exact": false,
       "estimate_factor": 1.5,
+      "script_factors": {
+        "Arabic": 2.17,
+        "Hebrew": 1.86,
+        "Devanagari": 2.31,
+        "Gurmukhi": 3.9,
+        "Thai": 2.39,
+        "Hangul": 1.86,
+        "Cyrillic": 1.74,
+        "Chinese": 1.52,
+        "Japanese": 1.33
+      },
       "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
     },
     "claude-haiku-5-5": {
@@ -151,6 +184,17 @@
       "tokenizer": "o200k_base",
       "exact": false,
       "estimate_factor": 1.5,
+      "script_factors": {
+        "Arabic": 2.17,
+        "Hebrew": 1.86,
+        "Devanagari": 2.31,
+        "Gurmukhi": 3.9,
+        "Thai": 2.39,
+        "Hangul": 1.86,
+        "Cyrillic": 1.74,
+        "Chinese": 1.52,
+        "Japanese": 1.33
+      },
       "source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
       "notes": "Price for prompts up to 100K tokens; $0.50 / $2.50 (cached input $0.05) above that."
     },
@@ -164,6 +208,17 @@
       "tokenizer": "o200k_base",
       "exact": false,
       "estimate_factor": 1.15,
+      "script_factors": {
+        "Arabic": 2.17,
+        "Hebrew": 1.86,
+        "Devanagari": 2.31,
+        "Gurmukhi": 3.9,
+        "Thai": 2.39,
+        "Hangul": 1.87,
+        "Cyrillic": 1.74,
+        "Chinese": 1.53,
+        "Japanese": 1.33
+      },
       "source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
       "notes": "Uses the older Claude tokenizer (about 30% fewer tokens than Claude 4.7+)."
     },

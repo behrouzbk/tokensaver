@@ -11,6 +11,18 @@ from pathlib import Path
 
 DEFAULT_PRICES_PATH = Path(__file__).parent / "data" / "prices.json"
 TOKENS_PER_PRICE_UNIT = 1_000_000
+# Writing systems that can have their own estimate factor (`script_factors`).
+SCRIPTS = (
+    "Arabic",
+    "Hebrew",
+    "Devanagari",
+    "Gurmukhi",
+    "Thai",
+    "Hangul",
+    "Cyrillic",
+    "Chinese",
+    "Japanese",
+)
 
 
 class PriceDataError(ValueError):
@@ -44,6 +56,8 @@ class ModelInfo:
     cached_input_per_1m: float | None = None  # cache-read price; None: no caching price known
     cache_write_per_1m: float | None = None  # None: writes cost the normal input price
     min_cacheable_tokens: int | None = None  # None: not published (or depends on the request)
+    # Measured estimate factors per writing system, as (script, factor) pairs.
+    script_factors: tuple[tuple[str, float], ...] = ()
 
     @property
     def caches(self) -> bool:
@@ -92,6 +106,23 @@ def _optional_tokens(entry: dict, field: str, model: str) -> int | None:
     return value
 
 
+def _script_factors(entry: dict, model: str) -> tuple[tuple[str, float], ...]:
+    raw = entry.get("script_factors") or {}
+    if not isinstance(raw, dict):
+        raise PriceDataError(f"Model '{model}' needs script_factors as an object.")
+    out = []
+    for script, value in raw.items():
+        if script not in SCRIPTS:
+            raise PriceDataError(
+                f"Model '{model}' has an unknown script '{script}'. Known: {', '.join(SCRIPTS)}"
+            )
+        factor = float(value)
+        if factor <= 0:
+            raise PriceDataError(f"Model '{model}' needs a positive factor for {script}.")
+        out.append((script, factor))
+    return tuple(out)
+
+
 def _parse_model(name: str, entry: dict) -> ModelInfo:
     input_price = float(_require(entry, "input_per_1m", name))
     output_price = float(_require(entry, "output_per_1m", name))
@@ -116,6 +147,7 @@ def _parse_model(name: str, entry: dict) -> ModelInfo:
         cached_input_per_1m=_optional_price(entry, "cached_input_per_1m", name),
         cache_write_per_1m=_optional_price(entry, "cache_write_per_1m", name),
         min_cacheable_tokens=_optional_tokens(entry, "min_cacheable_tokens", name),
+        script_factors=() if exact else _script_factors(entry, name),
     )
 
 

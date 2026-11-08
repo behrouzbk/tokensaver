@@ -1,0 +1,55 @@
+Arabic: أجب دائمًا بتنسيق JSON.
+Bengali: সবসময় JSON ফরম্যাটে উত্তর দিন।
+Bulgarian: Винаги отговаряй във формат JSON.
+Burmese (Myanmar): JSON ပုံစံဖြင့် အမြဲဖြေပါ။
+Chinese (Simplified): 始终以 JSON 格式回答。
+Chinese (Traditional, Hong Kong): 請始終以 JSON 格式回覆。
+Chinese (Traditional, Macau): 請一律以 JSON 格式回答。
+Chinese (Traditional, Taiwan): 請務必使用 JSON 格式回答。
+Croatian: Uvijek odgovaraj u JSON formatu.
+Czech: Vždy odpovídej ve formátu JSON.
+Danish: Svar altid i JSON-format.
+Dutch: Antwoord altijd in JSON-formaat.
+English: Always answer in JSON format.
+Estonian: Vasta alati JSON-vormingus.
+Finnish: Vastaa aina JSON-muodossa.
+French: Réponds toujours au format JSON.
+German: Antworte immer im JSON-Format.
+Greek: Απάντα πάντα σε μορφή JSON.
+Hebrew: ענה תמיד בפורמט JSON.
+Hindi: हमेशा JSON प्रारूप में उत्तर दें।
+Hungarian: Mindig JSON formátumban válaszolj.
+Indonesian: Selalu jawab dalam format JSON.
+Italian: Rispondi sempre in formato JSON.
+Japanese: 常に JSON 形式で回答してください。
+Kannada: ಯಾವಾಗಲೂ JSON ಸ್ವರೂಪದಲ್ಲಿ ಉತ್ತರಿಸಿ.
+Khmer: តែងតែឆ្លើយជាទម្រង់ JSON។
+Korean: 항상 JSON 형식으로 답변하세요.
+Lithuanian: Visada atsakyk JSON formatu.
+Malay: Sentiasa jawab dalam format JSON.
+Malayalam: എപ്പോഴും JSON ഫോർമാറ്റിൽ മറുപടി നൽകുക.
+Marathi: नेहमी JSON स्वरूपात उत्तर द्या.
+Nepali: सधैं JSON ढाँचामा जवाफ दिनुहोस्।
+Nigerian Pidgin: Always answer for JSON format.
+Norwegian: Svar alltid i JSON-format.
+Persian (Farsi): همیشه با قالب JSON پاسخ بده.
+Polish: Zawsze odpowiadaj w formacie JSON.
+Portuguese (Brazil): Sempre responda no formato JSON.
+Portuguese (Portugal): Responde sempre no formato JSON.
+Punjabi (Gurmukhi): ਹਮੇਸ਼ਾ JSON ਫਾਰਮੈਟ ਵਿੱਚ ਜਵਾਬ ਦਿਓ।
+Romanian: Răspunde întotdeauna în format JSON.
+Russian: Всегда отвечай в формате JSON.
+Serbian (Cyrillic): Увек одговарај у JSON формату.
+Slovak: Vždy odpovedaj vo formáte JSON.
+Slovenian: Vedno odgovori v formatu JSON.
+Spanish: Responde siempre en formato JSON.
+Swahili: Jibu kila wakati kwa muundo wa JSON.
+Swedish: Svara alltid i JSON-format.
+Tagalog (Filipino): Palaging sumagot sa format na JSON.
+Tamil: எப்போதும் JSON வடிவத்தில் பதிலளிக்கவும்.
+Telugu: ఎల్లప్పుడూ JSON ఫార్మాట్‌లో సమాధానం ఇవ్వండి.
+Thai: ตอบในรูปแบบ JSON เสมอ
+Turkish: Her zaman JSON formatında cevap ver.
+Ukrainian: Завжди відповідай у форматі JSON.
+Urdu: ہمیشہ JSON فارمیٹ میں جواب دیں۔
+Vietnamese: Luôn trả lời theo định dạng JSON.

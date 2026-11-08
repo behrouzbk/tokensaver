@@ -5,12 +5,43 @@
   </picture>
 </h1>
 
-**Find out what your prompt costs on every major AI model, and exactly which changes make it cheaper.**
+**Same prompt, different bill: tokensaver shows what your prompt costs on 20 models, in any language, and exactly which changes make it cheaper.**
 
 [![CI](https://github.com/behrouzbk/tokensaver/actions/workflows/ci.yml/badge.svg)](https://github.com/behrouzbk/tokensaver/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/prompt-tokensaver.svg)](https://pypi.org/project/prompt-tokensaver/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/behrouzbk/tokensaver/blob/main/LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+
+<a href="https://github.com/behrouzbk/tokensaver/tree/main/examples/calibration">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://cdn.jsdelivr.net/gh/behrouzbk/tokensaver@main/assets/language-tax-dark.svg">
+    <img alt="Tokens per GPT-4o token for the same prompt in 12 languages: Claude uses up to 3.9x (Punjabi), Gemini stays between 0.8x and 1.25x" src="https://cdn.jsdelivr.net/gh/behrouzbk/tokensaver@main/assets/language-tax-light.svg">
+  </picture>
+</a>
+
+"Where is my order?" is 8 tokens in English and 47 in Punjabi on Claude Sonnet 5.5, but 6
+and 13 on Gemini 3.8 Flash. The same question can cost very different amounts depending on
+the language and the provider, and tokensaver shows you how much before you pay for it.
+
+### Try it in 30 seconds
+
+```bash
+pip install prompt-tokensaver
+tokensaver compare "ਮੇਰਾ ਆਰਡਰ ਕਿੱਥੇ ਹੈ?" --models gpt-4o,claude-sonnet-5-5,gemini-3.8-flash
+```
+
+```text
+| Model             | Provider  | Tokens | Count     |    $/call | $/1k calls |
+|-------------------+-----------+--------+-----------+-----------+------------|
+| gemini-3.8-flash  | Google    |    ~13 | estimated |  $0.00001 |   $0.00975 |
+| gpt-4o            | OpenAI    |     12 | exact     |  $0.00003 |    $0.0300 |
+| claude-sonnet-5-5 | Anthropic |    ~47 | estimated | $0.000094 |    $0.0940 |
+```
+
+**Measured, not guessed.** Claude and Gemini estimates are calibrated against Anthropic's
+and Google's own token counters ([calibration](https://github.com/behrouzbk/tokensaver/tree/main/examples/calibration)),
+and the optimized example prompt passes the same 45 behaviour tests on a real model as the
+original ([behaviour test](https://github.com/behrouzbk/tokensaver/tree/main/examples/behaviour-test)).
 
 Most token counters stop at a number. tokensaver tells you **what to change**: every
 suggestion comes with a reason, the tokens it saves, and what that is worth in dollars.

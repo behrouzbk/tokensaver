@@ -37,6 +37,14 @@ measures those factors against the providers' own counters (issue
    unusual script cannot pull it far. The summary also shows the ratio for each kind
    of text, and the median error of the current and fitted factors.
 
+## How tokensaver uses the factors
+
+The text is tokenized once with `o200k_base`. Each token is weighted by the factor of the
+script of the first letter it covers (spaces, digits and punctuation go with the script
+around them; Han counts as Japanese when the text has kana). Tokens of other scripts,
+including Latin, use the model's `estimate_factor`. Text with no measured script is
+estimated exactly as before.
+
 ## Results: Claude (2026-11-07)
 
 Full tables in [`results/summary.md`](results/summary.md), raw counts in
@@ -50,17 +58,42 @@ Full tables in [`results/summary.md`](results/summary.md), raw counts in
 - **Other scripts were badly undercounted.** Claude tokens per o200k token, for the same
   text: Gurmukhi (Punjabi) 3.90, Thai 2.39, Devanagari (Hindi) 2.31, Arabic 2.17, Hebrew
   1.86, Hangul (Korean) 1.86, Cyrillic (Russian) 1.74, Chinese 1.52, Japanese 1.33. These
-  are now `script_factors` in `prices.json`, applied to each part of a text written in
+  are now `script_factors` in `prices.json`, applied to the tokens of a text written in
   that script.
 - **Not fixed: other Latin-script languages.** A script cannot tell German from English,
   so German (2.15 on Claude 5.x) and French (1.78) still use the English factor and are
   undercounted by about 30% and 16%.
 
-Check on text no factor was fitted on (the 55 one-line samples together): the Claude
-estimate went from 26% too low to 15% too low on Sonnet 5.5, and to 6% too low on Haiku
-4.5. What is left comes from Latin-script languages and scripts without a factor yet.
+## Results: Gemini (2026-11-07)
 
-Gemini: not measured yet.
+- **Gemini 3.8 Flash and 3.1 Pro count every text identically.** Gemini 4 Argon is close,
+  and adds 31 framing tokens per request (the others add none).
+- **The language gap is small on Gemini.** Gemini tokens per o200k token: Hebrew 1.24,
+  Arabic 1.18, Gurmukhi (Punjabi) 1.09, Cyrillic 1.06, Hangul 1.02, Chinese 1.00,
+  Devanagari 0.87, Thai 0.83, Japanese 0.79 (3.8 Flash; Argon is slightly lower). The old
+  single factor of 1.05 was up to 42% too high on Thai and Japanese.
+- **Default factor 1.05 → 1.10.** English prose is 1.07–1.08, code 1.17–1.19 and JSON
+  1.21–1.22. One factor covers all Latin-script text, so 1.10 is a compromise: English
+  prose +2%, code -7%, JSON -10% (before: -3%, -12%, -14%).
+- **Not measured:** `gemini-2.5-flash` and `gemini-2.5-flash-lite` return "no longer
+  available to new users". They use Gemini 3.8 Flash's factors.
+
+## Check on text no factor was fitted on
+
+The 55 one-line language samples, counted as one text. Error of the estimate:
+
+- Claude Sonnet 5.5: 26% too low before, 20% too low now.
+- Claude Haiku 4.5: 26% too low before, 13% too low now.
+- Gemini 3.8 Flash: 5% too high before, 7% too high now. Gemini 4 Argon: 5% → 6%.
+
+What is left comes from scripts without a factor yet (Bengali, Greek, Kannada, Khmer,
+Malayalam, Myanmar, Tamil, Telugu) and, on Claude, from Latin-script languages.
+
+A correction to the first Claude results: the version in 0.7.0 counted each script's part
+of a text separately, which added tokens at every cut (+6% on this text) and made the
+Claude numbers above look better (15% and 6% too low). tokensaver now tokenizes the whole
+text once and only weights each token by its script, so the total always matches the
+o200k count.
 
 ## Run it
 

@@ -440,6 +440,10 @@ elsewhere: `cache_write_per_1m` in `prices.json`.
 | gemini-2.5-flash | Google | $0.30 | $2.50 | $0.03 | 2,048 | estimated |
 | gemini-2.5-flash-lite | Google | $0.10 | $0.40 | $0.01 | - | estimated |
 
+`gemini-2.5-flash` and `gemini-2.5-flash-lite` are closed to new API users (Google
+returns "no longer available to new users"), so they could not be calibrated and use
+Gemini 3.8 Flash's factors. They stay in the list for existing users.
+
 Run `tokensaver models` to see the list for your installed version.
 
 ## Limitations
@@ -449,15 +453,17 @@ Please read this before relying on the numbers.
 - **Exact vs estimated.** Counts are exact only for OpenAI models that `tiktoken` maps to a
   tokenizer (shown as "exact"). Claude, Gemini and GPT-6 have no offline tokenizer, so
   tokensaver counts with OpenAI's `o200k_base` and multiplies by a per-model factor from
-  `prices.json`. These are always shown with `~` and labelled "estimated". For Claude the
-  factors are **measured** against Anthropic's token counter
-  ([calibration](https://github.com/behrouzbk/tokensaver/blob/main/examples/calibration)):
-  within about 5% on English, code and JSON, with separate factors for Arabic, Hebrew,
-  Devanagari, Gurmukhi, Thai, Hangul, Cyrillic, Chinese and Japanese text (Claude uses up
-  to 3.9× as many tokens as `o200k` on Punjabi). Other Latin-script languages use the
-  English factor and are undercounted on Claude, about 16% for French and 30% for German.
-  Gemini and GPT-6 factors are still rough guesses. For exact counts, use the provider's
-  own token-counting API.
+  `prices.json`. These are always shown with `~` and labelled "estimated". For Claude and
+  Gemini the factors are **measured** against the providers' own token counters
+  ([calibration](https://github.com/behrouzbk/tokensaver/blob/main/examples/calibration)),
+  with separate factors for Arabic, Hebrew, Devanagari, Gurmukhi, Thai, Hangul, Cyrillic,
+  Chinese and Japanese text. Claude uses up to 3.9× as many tokens as `o200k` (on
+  Punjabi); Gemini stays between 0.7× and 1.25× in every script. English prose is within
+  about 5% on both. Code and JSON are about 7–10% low on Gemini, because one factor
+  covers all Latin-script text. Other Latin-script languages use the English factor and
+  are undercounted on Claude, about 16% for French and 30% for German. GPT-6 factors are
+  still a rough guess (there is no counting endpoint to check them). For exact counts,
+  use the provider's own token-counting API.
 - **Input cost only.** `count`, `compare`, `optimize`, `scan` and `request` price the
   prompt you send. Output tokens, batch discounts and long-context surcharges (for example
   above 200K tokens on Gemini 3.1 Pro or 100K on Claude Haiku 5.5) are not included.
@@ -473,8 +479,8 @@ Please read this before relying on the numbers.
 - **Languages.** Token counting and the `json`, `whitespace` and `duplicates` rules work
   in every language (tested on 55, see above). The `filler` rule understands English and
   Persian; `repeated-instructions` and "Example 1:" detection, currently English only.
-  Claude estimates for scripts without a measured factor (for example Bengali, Greek,
-  Khmer, Tamil) and Gemini estimates for any non-English text are less reliable.
+  Claude and Gemini estimates for scripts without a measured factor (for example Bengali,
+  Greek, Khmer, Tamil) are less reliable.
 - **Message overhead is not counted.** Chat APIs add a few tokens per message for roles
   and formatting. tokensaver counts the text you give it.
 - **Rules are heuristics.** Review suggestions can be wrong: a repeated sentence can be
@@ -485,7 +491,9 @@ Please read this before relying on the numbers.
 
 ## Roadmap
 
-- [ ] Calibrate the Claude and Gemini estimate factors against official token counters
+- [x] Calibrate the Claude and Gemini estimate factors against official token counters
+- [ ] Measured factors for more scripts (Bengali, Greek, Tamil, ...) and for Latin-script
+  languages other than English on Claude
 - [x] `--json` output for CI pipelines and scripts
 - [x] Check that requests share a cacheable prefix (`tokensaver cache-check`)
 - [x] Prompt-caching cost estimates for the fixed part (`tokensaver request`)

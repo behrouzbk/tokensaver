@@ -230,7 +230,18 @@
       "min_cacheable_tokens": 4096,
       "tokenizer": "o200k_base",
       "exact": false,
-      "estimate_factor": 1.05,
+      "estimate_factor": 1.1,
+      "script_factors": {
+        "Arabic": 1.12,
+        "Hebrew": 1.19,
+        "Devanagari": 0.98,
+        "Gurmukhi": 0.96,
+        "Thai": 0.77,
+        "Hangul": 0.93,
+        "Cyrillic": 1.05,
+        "Chinese": 0.97,
+        "Japanese": 0.74
+      },
       "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
       "notes": "Rises to $4.00 / $20.00 (cached input $0.20) on 2026-12-01. Implicit caching only."
     },
@@ -242,7 +253,18 @@
       "min_cacheable_tokens": 4096,
       "tokenizer": "o200k_base",
       "exact": false,
-      "estimate_factor": 1.05,
+      "estimate_factor": 1.1,
+      "script_factors": {
+        "Arabic": 1.18,
+        "Hebrew": 1.24,
+        "Devanagari": 0.87,
+        "Gurmukhi": 1.09,
+        "Thai": 0.83,
+        "Hangul": 1.02,
+        "Cyrillic": 1.06,
+        "Chinese": 1.0,
+        "Japanese": 0.79
+      },
       "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
       "notes": "Rises to $1.50 / $7.50 (cached input $0.15) on 2027-01-01."
     },
@@ -254,7 +276,18 @@
       "min_cacheable_tokens": 4096,
       "tokenizer": "o200k_base",
       "exact": false,
-      "estimate_factor": 1.05,
+      "estimate_factor": 1.1,
+      "script_factors": {
+        "Arabic": 1.18,
+        "Hebrew": 1.24,
+        "Devanagari": 0.87,
+        "Gurmukhi": 1.09,
+        "Thai": 0.83,
+        "Hangul": 1.02,
+        "Cyrillic": 1.06,
+        "Chinese": 1.0,
+        "Japanese": 0.79
+      },
       "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
       "notes": "Price for prompts up to 200K tokens; $4.00 / $18.00 (cached input $0.40) above that."
     },
@@ -266,8 +299,20 @@
       "min_cacheable_tokens": 2048,
       "tokenizer": "o200k_base",
       "exact": false,
-      "estimate_factor": 1.05,
-      "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
+      "estimate_factor": 1.1,
+      "script_factors": {
+        "Arabic": 1.18,
+        "Hebrew": 1.24,
+        "Devanagari": 0.87,
+        "Gurmukhi": 1.09,
+        "Thai": 0.83,
+        "Hangul": 1.02,
+        "Cyrillic": 1.06,
+        "Chinese": 1.0,
+        "Japanese": 0.79
+      },
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "notes": "Closed to new API users (Google returns 404 since 2026-11), so it could not be calibrated; uses Gemini 3.8 Flash's measured factors. Google routes it to Gemini 3.5 Flash-Lite from 2026-12-01."
     },
     "gemini-2.5-flash-lite": {
       "provider": "Google",
@@ -276,8 +321,20 @@
       "cached_input_per_1m": 0.01,
       "tokenizer": "o200k_base",
       "exact": false,
-      "estimate_factor": 1.05,
-      "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
+      "estimate_factor": 1.1,
+      "script_factors": {
+        "Arabic": 1.18,
+        "Hebrew": 1.24,
+        "Devanagari": 0.87,
+        "Gurmukhi": 1.09,
+        "Thai": 0.83,
+        "Hangul": 1.02,
+        "Cyrillic": 1.06,
+        "Chinese": 1.0,
+        "Japanese": 0.79
+      },
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "notes": "Closed to new API users (Google returns 404 since 2026-11), so it could not be calibrated; uses Gemini 3.8 Flash's measured factors."
     }
   }
 }

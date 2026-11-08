@@ -4,7 +4,7 @@ import pytest
 import tiktoken
 
 from tokensaver import counter
-from tokensaver.counter import count_raw, count_tokens, get_encoding
+from tokensaver.counter import count_raw, count_tokens, get_encoding, tokens_by_script
 from tokensaver.pricing import load_prices
 
 SAMPLES = {
@@ -116,12 +116,21 @@ def test_script_factor_scales_that_script_only() -> None:
     punjabi = "ਮੇਰਾ ਆਰਡਰ ਕਿੱਥੇ ਹੈ?"
     english = "Where is my order?"
     assert count_tokens(punjabi, model).tokens == round(count_raw(punjabi, "o200k_base") * 3.9)
-    mixed = count_tokens(english + " " + punjabi, model).tokens
-    expected = (
-        count_raw(english + " ", "o200k_base") * model.estimate_factor
-        + count_raw(punjabi, "o200k_base") * 3.9
+    mixed_text = english + " " + punjabi
+    by_script = tokens_by_script(mixed_text, "o200k_base")
+    assert set(by_script) == {"other", "Gurmukhi"}
+    expected = by_script["other"] * model.estimate_factor + by_script["Gurmukhi"] * 3.9
+    assert count_tokens(mixed_text, model).tokens == round(expected)
+
+
+def test_tokens_by_script_adds_up_to_the_raw_count() -> None:
+    """The text is tokenized once: splitting it by script must not add tokens."""
+    text = (
+        "Arabic: أجب دائمًا بتنسيق JSON.\n"
+        "Thai: ตอบเป็นภาษาอังกฤษเสมอ\n"
+        "日本語: 常に回答してください。 Done."
     )
-    assert mixed == round(expected)
+    assert sum(tokens_by_script(text, "o200k_base").values()) == count_raw(text, "o200k_base")
 
 
 def test_unmeasured_script_uses_the_default_factor() -> None:

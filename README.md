@@ -190,8 +190,22 @@ total.
 | `--output FILE`, `-o FILE` | Saves the optimized prompt to `FILE`. Without it, nothing is written. The input file is **never** overwritten. |
 | `--force` | Lets `--output` replace a file that already exists. It still refuses to overwrite the input file. |
 | `--no-diff` | Hides the before/after diff (it is shown by default). |
+| `--cache-hit-rate R` | Also shows what the saving is worth with prompt caching, at a share `R` (0 to 1) of calls that read the prompt from the cache. Off by default. |
+| `--tools FILE` | With `--cache-hit-rate`: tool schemas sent with this prompt, so the caching saving covers the whole fixed part. |
 | `--prices FILE` | Use your own `prices.json`. |
 | `--json` | Prints JSON instead of tables, for scripts and CI (see [JSON output](#json-output)). |
+
+**Savings with prompt caching.** The dollar savings above are at the normal input price.
+If this prompt is the cached fixed part of every request, a saved token is worth less on
+cached calls: 50% of the input price on `gpt-4o`, 10% on most newer models, 2.5% on Claude
+Fable 5.1. `--cache-hit-rate` adds a second summary with the saving per 1,000 calls with
+no caching, on the first call (cache write), on a cached call and on average. It warns
+when the prompt is too short to be cached at all, and when optimizing would push it
+below the minimum, so cached calls would get more expensive.
+
+```bash
+tokensaver optimize system.md --apply all --cache-hit-rate 0.9 --tools tools.json
+```
 
 Common combinations:
 
@@ -442,7 +456,8 @@ Please read this before relying on the numbers.
 - **Input cost only.** `count`, `compare`, `optimize`, `scan` and `request` price the
   prompt you send. Output tokens, batch discounts and long-context surcharges (for example
   above 200K tokens on Gemini 3.1 Pro or 100K on Claude Haiku 5.5) are not included.
-  Prompt-caching prices are used only by `request`, and only for the fixed part.
+  Prompt-caching prices are used only by `request` and `optimize --cache-hit-rate`,
+  and only for the fixed part.
 - **Caching estimates are estimates.** They assume the whole fixed part is cached and use
   the default (shortest) cache: 5 minutes on Claude, 30 minutes on GPT-6. Longer caches cost
   more to write, Gemini's explicit caching adds a storage fee, and whether a call actually

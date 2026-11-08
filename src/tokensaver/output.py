@@ -15,7 +15,7 @@ from tokensaver.optimizer import Finding, OptimizationResult
 from tokensaver.optimizer.base import Risk
 from tokensaver.prefix import PrefixCheck
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
-from tokensaver.request import CacheEstimate, Part, RequestBreakdown
+from tokensaver.request import CacheEstimate, CacheSaving, Part, RequestBreakdown
 from tokensaver.scan import ScanResult
 
 CALLS = 1_000  # costs are also shown per this many calls, where they become readable
@@ -210,6 +210,86 @@ def _summary(result: OptimizationResult) -> Panel:
     return Panel(lines, title=f"Total savings on {model.name}", box=box.ROUNDED, expand=False)
 
 
+def _cache_saving_panel(
+    result: OptimizationResult, cache: CacheSaving, hit_rate: float, tools_tokens: int
+) -> Panel:
+    approx = "" if result.model.exact and not tools_tokens else "~"
+    before, after = cache.before, cache.after
+    lines = Text()
+    if tools_tokens:
+        lines.append("Fixed part: ", style="bold")
+        lines.append(
+            f"{approx}{before.tokens:,} to {approx}{after.tokens:,} tokens "
+            f"(prompt + {approx}{tools_tokens:,} tokens of tools)\n"
+        )
+    rows = [
+        ("No caching:  ", cache.uncached),
+        ("First call:  ", cache.first_call),
+        ("Cached call: ", cache.cached_call),
+    ]
+    for label, saved in rows:
+        lines.append(label, style="bold")
+        lines.append(f"{usd(saved * CALLS)} saved per {CALLS:,} calls\n")
+    average = cache.average if cache.average is not None else 0.0
+    lines.append(f"Average at {_hit_rate_label(hit_rate)} hits: ", style="bold")
+    lines.append(
+        f"{usd(average * CALLS)} saved per {CALLS:,} calls",
+        style="bold green" if average > 0 else "bold red" if average < 0 else "",
+    )
+    title = f"Savings with prompt caching on {result.model.name}"
+    return Panel(lines, title=title, box=box.ROUNDED, expand=False)
+
+
+def _render_cache_saving(
+    console: Console,
+    result: OptimizationResult,
+    cache: CacheSaving | None,
+    hit_rate: float,
+    tools_tokens: int,
+) -> None:
+    model = result.model
+    if cache is None:
+        console.print(
+            Text(f"No prompt-caching price for {model.name} in prices.json.", style="yellow")
+        )
+        return
+    minimum = cache.before.min_tokens
+    if cache.before.below_minimum:
+        console.print(
+            Text(
+                f"Prompt caching: the prompt is below {model.name}'s minimum of {minimum:,} "
+                "tokens, so it is never cached and the saving above is what you save.",
+                style="yellow",
+            )
+        )
+        return
+    console.print(_cache_saving_panel(result, cache, hit_rate, tools_tokens))
+    if cache.loses_caching:
+        console.print(
+            Text(
+                f"Warning: after optimizing, the prompt drops below {model.name}'s minimum of "
+                f"{minimum:,} tokens, so it is no longer cached. Cached calls get more "
+                "expensive; check the average before applying.",
+                style="bold red",
+            )
+        )
+    if minimum is None:
+        console.print(
+            Text(
+                f"{model.provider} publishes no fixed minimum cacheable length for {model.name}; "
+                "this assumes the prompt is cached.",
+                style="dim",
+            )
+        )
+    if not tools_tokens:
+        console.print(
+            Text(
+                "Sent with tool schemas? Add --tools tools.json to price the whole fixed part.",
+                style="dim",
+            )
+        )
+
+
 def render_optimize(
     console: Console,
     result: OptimizationResult,
@@ -217,6 +297,9 @@ def render_optimize(
     source: str,
     show_diff: bool = True,
     extra_if_all: int = 0,
+    cache: CacheSaving | None = None,
+    hit_rate: float | None = None,
+    tools_tokens: int = 0,
 ) -> None:
     """Render an optimization. `extra_if_all` is the measured extra saving of --apply all."""
     header = Text.assemble(
@@ -258,6 +341,8 @@ def render_optimize(
         console.print(Panel(diff_text(result.original, result.optimized), title="Diff"))
 
     console.print(_summary(result))
+    if hit_rate is not None:
+        _render_cache_saving(console, result, cache, hit_rate, tools_tokens)
     if not result.model.exact:
         console.print(Text(ESTIMATE_NOTE, style="yellow"))
     console.print(prices_footer(table))

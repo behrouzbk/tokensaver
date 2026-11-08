@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `optimize --cache-hit-rate`: also shows what the saving is worth with prompt caching,
+  per 1,000 calls with no caching, on the first call, on a cached call and on average.
+  `--tools` adds tool schemas so the saving covers the whole fixed part. Warns when the
+  prompt is too short to be cached, and when optimizing would push it below the minimum.
+  `--json` gets a `caching` object when the option is used. Default output is unchanged
+  (#20).
+
 ## [0.5.0] - 2026-11-07
 
 ### Added

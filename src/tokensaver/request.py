@@ -159,10 +159,55 @@ class CacheEstimate:
 
 def cache_estimate(result: RequestBreakdown, hit_rate: float | None = None) -> CacheEstimate | None:
     """Fixed-part cost with prompt caching; None when the model has no caching price."""
-    model = result.model
+    return estimate_cache(result.fixed_tokens, result.model, hit_rate)
+
+
+@dataclass(frozen=True)
+class CacheSaving:
+    """What shrinking the fixed part saves per call, with and without prompt caching."""
+
+    before: CacheEstimate
+    after: CacheEstimate
+
+    @property
+    def uncached(self) -> float:
+        return self.before.uncached - self.after.uncached
+
+    @property
+    def first_call(self) -> float:
+        return self.before.first_call - self.after.first_call
+
+    @property
+    def cached_call(self) -> float:
+        return self.before.cached_call - self.after.cached_call
+
+    @property
+    def average(self) -> float | None:
+        """Saving per call at the hit rate; can be negative if caching is lost."""
+        before, after = self.before.average, self.after.average
+        return None if before is None or after is None else before - after
+
+    @property
+    def loses_caching(self) -> bool:
+        """The fixed part was long enough to be cached, and no longer is."""
+        return not self.before.below_minimum and self.after.below_minimum
+
+
+def cache_saving(
+    tokens_before: int, tokens_after: int, model: ModelInfo, hit_rate: float | None = None
+) -> CacheSaving | None:
+    """Saving from shrinking a fixed part; None when the model has no caching price."""
+    before = estimate_cache(tokens_before, model, hit_rate)
+    after = estimate_cache(tokens_after, model, hit_rate)
+    return None if before is None or after is None else CacheSaving(before, after)
+
+
+def estimate_cache(
+    tokens: int, model: ModelInfo, hit_rate: float | None = None
+) -> CacheEstimate | None:
+    """Cost of a `tokens`-long fixed part with prompt caching; None without a caching price."""
     if not model.caches:
         return None
-    tokens = result.fixed_tokens
     return CacheEstimate(
         tokens=tokens,
         uncached=input_cost(tokens, model),

@@ -262,6 +262,16 @@ tokensaver request --system support_bot_prompt.txt --tools tools.json -m gpt-6.1
 gpt-6.1-sol's minimum of 1,024 tokens, so every call pays the full input price.
 
 ```powershell
+# What the 121-token saving is worth with prompt caching (needs 0.6.0 or newer)
+tokensaver optimize support_bot_prompt.txt --apply all --no-diff --cache-hit-rate 0.9 --tools tools.json
+```
+
+✅ After the usual summary, a **Savings with prompt caching on gpt-4o** panel: fixed part
+`~573 to ~452` tokens, No caching `$0.3025` saved per 1,000 calls, Cached call `$0.1513`,
+and Average at 90% hits `$0.1664`. On gpt-4o a cached token costs half the input price,
+so the saving on a cached call is half.
+
+```powershell
 # Errors: each prints a red "Error:" and stops
 tokensaver request --user "Hi"                    # needs --system or --tools
 tokensaver request --system nope.txt              # File not found: nope.txt

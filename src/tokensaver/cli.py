@@ -40,7 +40,13 @@ from tokensaver.report import (
     request_report,
     scan_report,
 )
-from tokensaver.request import ToolsError, breakdown, cache_estimate
+from tokensaver.request import (
+    ToolsError,
+    breakdown,
+    cache_estimate,
+    cache_saving,
+    measure_tools,
+)
 from tokensaver.scan import DEFAULT_PATTERNS, scan
 
 DEFAULT_MODEL = "gpt-4o"
@@ -66,6 +72,15 @@ PricesOpt = Annotated[
 ]
 JsonOpt = Annotated[
     bool, typer.Option("--json", help="Print JSON instead of tables, for scripts and CI.")
+]
+CacheHitRateOpt = Annotated[
+    float | None,
+    typer.Option(
+        help="Share of calls that read the fixed part from the prompt cache (0 to 1), "
+        "to show the average cost per call with caching.",
+        min=0.0,
+        max=1.0,
+    ),
 ]
 
 
@@ -176,10 +191,22 @@ def optimize_command(
     diff: Annotated[
         bool, typer.Option("--diff/--no-diff", help="Show the before/after diff.")
     ] = True,
+    cache_hit_rate: CacheHitRateOpt = None,
+    tools: Annotated[
+        str | None,
+        typer.Option(
+            help="With --cache-hit-rate: tool schemas (JSON file or '-') sent with this "
+            "prompt, so the caching saving covers the whole fixed part."
+        ),
+    ] = None,
     prices: PricesOpt = None,
     json_output: JsonOpt = False,
 ) -> None:
     """Suggest concrete changes, with the tokens and dollars each one saves."""
+    if tools is not None and cache_hit_rate is None:
+        raise _fail("--tools is used with --cache-hit-rate, to price the whole fixed part.")
+    if [input, tools].count("-") > 1:
+        raise _fail("Only one input can be read from stdin ('-').")
     table = _load_table(prices)
     info = _get_model(table, model)
     try:
@@ -187,6 +214,13 @@ def optimize_command(
     except ValueError as error:
         raise _fail(str(error)) from None
     prompt = _read(input)
+    tools_tokens = 0
+    if tools is not None:
+        tools_in = _read(tools)
+        try:
+            tools_tokens = measure_tools(tools_in.text, tools_in.source, info).tokens
+        except ToolsError as error:
+            raise _fail(str(error)) from None
 
     if output is not None:
         _check_output(output, prompt, force)
@@ -198,14 +232,38 @@ def optimize_command(
         extra_if_all = max(result.tokens_after - everything.tokens_after, 0)
     if output is not None:
         output.write_text(result.optimized, encoding="utf-8")
+    saving = None
+    if cache_hit_rate is not None:
+        saving = cache_saving(
+            result.tokens_before + tools_tokens,
+            result.tokens_after + tools_tokens,
+            info,
+            cache_hit_rate,
+        )
 
     if json_output:
-        report = optimize_report(result, table, prompt.source, extra_if_all, saved_to=output)
+        report = optimize_report(
+            result,
+            table,
+            prompt.source,
+            extra_if_all,
+            saved_to=output,
+            cache=saving,
+            hit_rate=cache_hit_rate,
+        )
         typer.echo(dumps(report))
         return
     console = _console()
     render_optimize(
-        console, result, table, prompt.source, show_diff=diff, extra_if_all=extra_if_all
+        console,
+        result,
+        table,
+        prompt.source,
+        show_diff=diff,
+        extra_if_all=extra_if_all,
+        cache=saving,
+        hit_rate=cache_hit_rate,
+        tools_tokens=tools_tokens,
     )
     if output is not None:
         console.print(f"Saved optimized prompt to {output}", markup=False)
@@ -267,15 +325,7 @@ def request_command(
             "for example the same message in different languages.",
         ),
     ] = None,
-    cache_hit_rate: Annotated[
-        float | None,
-        typer.Option(
-            help="Share of calls that read the fixed part from the prompt cache (0 to 1), "
-            "to show the average cost per call.",
-            min=0.0,
-            max=1.0,
-        ),
-    ] = None,
+    cache_hit_rate: CacheHitRateOpt = None,
     model: ModelOpt = DEFAULT_MODEL,
     prices: PricesOpt = None,
     json_output: JsonOpt = False,

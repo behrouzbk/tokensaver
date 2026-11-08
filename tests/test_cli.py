@@ -634,3 +634,61 @@ def test_models_lists_cached_price(run) -> None:
     result = run("models")
     assert result.exit_code == 0
     assert "Cached in / 1M" in result.output
+
+
+# --- optimize: prompt caching --------------------------------------------------
+
+
+def test_optimize_default_has_no_caching(run, messy_file: Path) -> None:
+    result = run("optimize", str(messy_file))
+    assert "prompt caching" not in result.output
+    data = json.loads(run("optimize", str(messy_file), "--json").output)
+    assert "caching" not in data
+
+
+def test_optimize_cache_hit_rate(run, messy_file: Path, tools_file: Path) -> None:
+    args = ("optimize", str(messy_file), "--cache-hit-rate", "0.9", "--tools", str(tools_file))
+    result = run(*args)
+    assert result.exit_code == 0
+    out = result.output
+    assert "Savings with prompt caching on gpt-4o" in out
+    assert "Average at 90% hits" in out
+    assert "tokens of tools" in out
+    assert "publishes no fixed minimum" in out
+
+
+def test_optimize_cache_json(run, tmp_path: Path) -> None:
+    long_prompt = tmp_path / "long.txt"
+    long_prompt.write_text(MESSY * 20, encoding="utf-8")
+    args = ("optimize", str(long_prompt), "-m", "claude-sonnet-5-5", "--cache-hit-rate", "0.5")
+    data = json.loads(run(*args, "--json").output)
+    cache = data["caching"]
+    assert cache["hit_rate"] == 0.5
+    assert cache["fixed_tokens_before"] == data["tokens_before"]
+    assert cache["fixed_tokens_after"] == data["tokens_after"]
+    assert cache["loses_caching"] is False
+    saved = cache["dollars_saved_per_call"]
+    assert saved["uncached"] == pytest.approx(data["dollars_saved_per_call"])
+    assert saved["first_call"] > saved["uncached"] > saved["cached_call"] > 0
+    assert saved["average"] == pytest.approx((saved["first_call"] + saved["cached_call"]) / 2)
+
+
+def test_optimize_below_minimum(run, messy_file: Path) -> None:
+    result = run("optimize", str(messy_file), "-m", "gpt-6.1-sol", "--cache-hit-rate", "0.9")
+    assert result.exit_code == 0
+    assert "never cached" in result.output
+    assert "Savings with prompt caching" not in result.output
+
+
+def test_optimize_tools_needs_hit_rate(run, messy_file: Path, tools_file: Path) -> None:
+    result = run("optimize", str(messy_file), "--tools", str(tools_file))
+    assert result.exit_code == 2
+    assert "--cache-hit-rate" in result.output
+
+
+def test_optimize_invalid_tools(run, messy_file: Path, tmp_path: Path) -> None:
+    bad = tmp_path / "bad.json"
+    bad.write_text("not json", encoding="utf-8")
+    args = ("optimize", str(messy_file), "--cache-hit-rate", "0.9", "--tools", str(bad))
+    result = run(*args)
+    assert result.exit_code == 2

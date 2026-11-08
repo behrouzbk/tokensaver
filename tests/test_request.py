@@ -194,3 +194,36 @@ def test_unknown_minimum_is_not_below() -> None:
     cache = cache_estimate(_fixed(GPT4O, "Be brief."))
     assert cache.min_tokens is None
     assert not cache.below_minimum
+
+
+# --- cache saving (optimize) ---------------------------------------------------
+
+
+def test_cache_saving_differences() -> None:
+    from tokensaver.request import cache_saving, estimate_cache
+
+    saving = cache_saving(2000, 1500, SONNET, hit_rate=0.9)
+    before = estimate_cache(2000, SONNET, 0.9)
+    after = estimate_cache(1500, SONNET, 0.9)
+    assert saving.uncached == pytest.approx(before.uncached - after.uncached)
+    assert saving.cached_call == pytest.approx(before.cached_call - after.cached_call)
+    assert saving.average == pytest.approx(before.average - after.average)
+    assert saving.first_call > saving.uncached > saving.cached_call > 0
+    assert not saving.loses_caching
+
+
+def test_cache_saving_can_lose_caching() -> None:
+    from tokensaver.request import cache_saving
+
+    gpt6 = TABLE.get("gpt-6.1-sol")  # minimum 1,024 tokens, cache reads at 5%
+    saving = cache_saving(1100, 900, gpt6, hit_rate=0.9)
+    assert saving.loses_caching
+    assert saving.average < 0  # cached calls now pay full price
+
+
+def test_cache_saving_needs_a_price() -> None:
+    from dataclasses import replace
+
+    from tokensaver.request import cache_saving
+
+    assert cache_saving(2000, 1500, replace(SONNET, cached_input_per_1m=None)) is None

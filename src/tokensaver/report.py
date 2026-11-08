@@ -12,7 +12,7 @@ from tokensaver.counter import TokenCount
 from tokensaver.optimizer import Finding, OptimizationResult
 from tokensaver.prefix import PrefixCheck
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
-from tokensaver.request import CacheEstimate, Part, RequestBreakdown
+from tokensaver.request import CacheEstimate, CacheSaving, Part, RequestBreakdown
 from tokensaver.scan import ScanResult
 
 
@@ -82,8 +82,11 @@ def optimize_report(
     source: str,
     extra_if_all: int = 0,
     saved_to: Path | None = None,
+    cache: CacheSaving | None = None,
+    hit_rate: float | None = None,
 ) -> dict:
-    return {
+    """`caching` is added only when a hit rate is given (null if the model has no price)."""
+    report = {
         "source": source,
         **_header(result.model, table),
         "tokens_before": result.tokens_before,
@@ -95,6 +98,30 @@ def optimize_report(
         "tidied": result.tidied,
         "findings": [_finding(f) for f in result.findings],
         "saved_to": str(saved_to) if saved_to is not None else None,
+    }
+    if hit_rate is not None:
+        report["caching"] = _cache_saving(cache, hit_rate)
+    return report
+
+
+def _cache_saving(cache: CacheSaving | None, hit_rate: float) -> dict | None:
+    if cache is None:
+        return None
+    average = cache.average
+    return {
+        "hit_rate": hit_rate,
+        "fixed_tokens_before": cache.before.tokens,
+        "fixed_tokens_after": cache.after.tokens,
+        "min_cacheable_tokens": cache.before.min_tokens,
+        "below_minimum_before": cache.before.below_minimum,
+        "below_minimum_after": cache.after.below_minimum,
+        "loses_caching": cache.loses_caching,
+        "dollars_saved_per_call": {
+            "uncached": _dollars(cache.uncached),
+            "first_call": _dollars(cache.first_call),
+            "cached_call": _dollars(cache.cached_call),
+            "average": _dollars(average) if average is not None else None,
+        },
     }
 
 

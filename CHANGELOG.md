@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-07
+
 ### Changed
 - Claude token estimates are now calibrated against Anthropic's token counter (#3). The
   factors for English, code and JSON were already right and are unchanged. Text in

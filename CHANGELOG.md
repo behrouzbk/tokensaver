@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-07
+
 ### Added
 - `optimize --cache-hit-rate`: also shows what the saving is worth with prompt caching,
   per 1,000 calls with no caching, on the first call, on a cached call and on average.

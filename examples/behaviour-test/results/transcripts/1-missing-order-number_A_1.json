@@ -1,0 +1,45 @@
+{
+  "case_id": "1-missing-order-number",
+  "arm": "A",
+  "run": 1,
+  "reply": "I'd be happy to help you track your order. Could you please give me your order number? It looks like A-10293.",
+  "tool_calls": [],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Where is my order?"
+    },
+    {
+      "role": "assistant",
+      "text": "I'd be happy to help you track your order. Could you please give me your order number? It looks like A-10293."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 1163,
+    "output": 34,
+    "judge_input": 448,
+    "judge_output": 69
+  },
+  "grade": {
+    "outcome": "pass",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "get_order_status not called"
+      },
+      {
+        "ok": true,
+        "detail": "no invented dates"
+      }
+    ],
+    "judge": [
+      {
+        "question": "Does the reply ask the customer for their order number?",
+        "answer": true,
+        "reason": "The reply explicitly asks, \"Could you please give me your order number?\" though it oddly also states a number it apparently guessed, the request itself is present."
+      }
+    ]
+  }
+}

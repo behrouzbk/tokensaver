@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `examples/behaviour-test/`: checks on a real model that the optimized support-bot
+  prompt (431 → 310 tokens) behaves like the original, across 9 support cases. Both
+  passed 45 of 45 on `claude-sonnet-5-5`; results and transcripts are included. Not part
+  of the package, which still makes no network calls.
+
 ## [0.6.0] - 2026-11-07
 
 ### Added

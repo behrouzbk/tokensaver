@@ -1,0 +1,49 @@
+{
+  "case_id": "5-language-switch-german",
+  "arm": "A",
+  "run": 5,
+  "reply": "Express shipping takes 1 to 2 business days. I'm replying in English, but I'm happy to keep helping. If you have an order number, I can check the status of your order for you.",
+  "tool_calls": [],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Hi, what shipping options do you have?"
+    },
+    {
+      "role": "assistant",
+      "text": "We have two shipping options:\n\n- **Standard shipping:** 3 to 5 business days\n- **Express shipping:** 1 to 2 business days\n\nIf you have an order number, I can check the status of your order. Is there anything else I can help with?"
+    },
+    {
+      "role": "user",
+      "text": "Danke! Wie lange dauert der Expressversand genau?"
+    },
+    {
+      "role": "assistant",
+      "text": "Express shipping takes 1 to 2 business days. I'm replying in English, but I'm happy to keep helping. If you have an order number, I can check the status of your order for you."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 2440,
+    "output": 134,
+    "judge_input": 632,
+    "judge_output": 86
+  },
+  "grade": {
+    "outcome": "pass",
+    "checks": [],
+    "judge": [
+      {
+        "question": "Is the reply written in English (not German)?",
+        "answer": true,
+        "reason": "The reply is written in English and explicitly says it is replying in English, with no German text."
+      },
+      {
+        "question": "Does the reply say express shipping takes 1 to 2 business days?",
+        "answer": true,
+        "reason": "The reply states that express shipping takes 1 to 2 business days."
+      }
+    ]
+  }
+}

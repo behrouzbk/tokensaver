@@ -449,10 +449,15 @@ Please read this before relying on the numbers.
 - **Exact vs estimated.** Counts are exact only for OpenAI models that `tiktoken` maps to a
   tokenizer (shown as "exact"). Claude, Gemini and GPT-6 have no offline tokenizer, so
   tokensaver counts with OpenAI's `o200k_base` and multiplies by a per-model factor from
-  `prices.json`. These are always shown with `~` and labelled "estimated". The factors are
-  rough heuristics, not measurements; real counts can differ by 10–20% or more,
-  especially for code and non-English text. For exact counts, use the provider's own
-  token-counting API.
+  `prices.json`. These are always shown with `~` and labelled "estimated". For Claude the
+  factors are **measured** against Anthropic's token counter
+  ([calibration](https://github.com/behrouzbk/tokensaver/blob/main/examples/calibration)):
+  within about 5% on English, code and JSON, with separate factors for Arabic, Hebrew,
+  Devanagari, Gurmukhi, Thai, Hangul, Cyrillic, Chinese and Japanese text (Claude uses up
+  to 3.9× as many tokens as `o200k` on Punjabi). Other Latin-script languages use the
+  English factor and are undercounted on Claude, about 16% for French and 30% for German.
+  Gemini and GPT-6 factors are still rough guesses. For exact counts, use the provider's
+  own token-counting API.
 - **Input cost only.** `count`, `compare`, `optimize`, `scan` and `request` price the
   prompt you send. Output tokens, batch discounts and long-context surcharges (for example
   above 200K tokens on Gemini 3.1 Pro or 100K on Claude Haiku 5.5) are not included.
@@ -468,7 +473,8 @@ Please read this before relying on the numbers.
 - **Languages.** Token counting and the `json`, `whitespace` and `duplicates` rules work
   in every language (tested on 55, see above). The `filler` rule understands English and
   Persian; `repeated-instructions` and "Example 1:" detection, currently English only.
-  Estimates for Claude and Gemini are less reliable for non-English text.
+  Claude estimates for scripts without a measured factor (for example Bengali, Greek,
+  Khmer, Tamil) and Gemini estimates for any non-English text are less reliable.
 - **Message overhead is not counted.** Chat APIs add a few tokens per message for roles
   and formatting. tokensaver counts the text you give it.
 - **Rules are heuristics.** Review suggestions can be wrong: a repeated sentence can be

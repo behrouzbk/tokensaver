@@ -1,0 +1,114 @@
+def render_body(body: dict) -> list[Segment]:
+    """Segments in the order providers cache them: tools, system prompt, then messages."""
+    segments: list[Segment] = []
+    if body.get("tools"):
+        segments.append(Segment("tools", tools_text(parse_tools(json.dumps(body["tools"]))), True))
+    for key in ("instructions", "system"):  # OpenAI Responses / Anthropic Messages
+        if body.get(key):
+            segments.append(Segment(key, _compact(body[key]), True))
+    for key in ("messages", "input"):
+        value = body.get(key)
+        if isinstance(value, str) and value:
+            segments.append(Segment(key, value, False))
+        elif isinstance(value, list):
+            for i, message in enumerate(value):
+                role = _role(message)
+                label = f"{key}[{i}] ({role})" if role else f"{key}[{i}]"
+                segments.append(_message(label, message))
+    return segments
+
+def render_input(text: str, source: str, tools: str | None = None) -> RenderedRequest:
+    """A request body (JSON with tools/system/messages) or a plain-text system prompt.
+
+    `tools` (JSON text) is added in front of plain-text prompts only; request bodies
+    carry their own tools.
+    """
+    body = None
+    if text.lstrip().startswith("{"):
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict) and any(key in data for key in BODY_KEYS):
+            body = data
+    if body is not None:
+        try:
+            segments = render_body(body)
+        except ValueError as error:
+            raise RequestInputError(f"{source}: {error}") from None
+    else:
+        segments = []
+        if tools is not None:
+            segments.append(Segment("tools", tools_text(parse_tools(tools)), True))
+        segments.append(Segment("system", text, True))
+    if not segments:
+        raise RequestInputError(f"{source}: no tools, system prompt or messages found.")
+    return RenderedRequest(source=source, segments=segments)
+
+def _dynamic_kind(text: str, offset: int) -> str | None:
+    """What the value at `offset` looks like, if it is a typical per-call value."""
+    for kind, pattern in DYNAMIC_PATTERNS:
+        for match in pattern.finditer(text):
+            if match.start() <= offset < match.end() or (
+                offset == match.end() and match.end() > match.start()
+            ):
+                return kind
+            if match.start() > offset:
+                break
+    return None
+
+def _snippet(text: str, offset: int) -> str:
+    line_start = text.rfind("\n", 0, offset) + 1
+    line_end = text.find("\n", offset)
+    line_end = len(text) if line_end == -1 else line_end
+    start = max(line_start, offset - SNIPPET_BEFORE)
+    if start > line_start and not text[start - 1].isspace():
+        space = text.find(" ", start, offset)  # start at a word, not inside one
+        start = space + 1 if space != -1 else start
+    end = min(line_end, offset + SNIPPET_AFTER)
+    snippet = text[start:end]
+    return ("…" if start > line_start else "") + snippet + ("…" if end < line_end else "")
+
+def _difference(request: RenderedRequest, offset: int, next_part: bool) -> Difference:
+    segment, inner = request.locate(offset, next_part)
+    if segment is None or offset >= len(request.text):
+        return Difference(request.source, None, False, 0, 0, "", None)
+    if inner < segment.header:  # the message roles differ
+        role = segment.text[: segment.header - 1]
+        return Difference(request.source, segment.label, segment.fixed, 0, 0, role, None)
+    text, inner = segment.text[segment.header :], inner - segment.header
+    before = text[:inner]
+    line = before.count("\n") + 1
+    column = inner - (before.rfind("\n") + 1) + 1
+    return Difference(
+        source=request.source,
+        part=segment.label,
+        fixed=segment.fixed,
+        line=line,
+        column=column,
+        snippet=_snippet(text, inner),
+        dynamic=_dynamic_kind(text, inner),
+    )
+
+def check(requests: list[RenderedRequest], model: ModelInfo) -> PrefixCheck:
+    """Find the longest prefix all requests share and where each one leaves it."""
+    if len(requests) < 2:
+        raise ValueError("Need at least two requests to compare.")
+    texts = [r.text for r in requests]
+    shared = os.path.commonprefix(texts)
+    identical = all(t == texts[0] for t in texts)
+    shared_tokens = count_tokens(shared, model).tokens if shared else 0
+    # When every request finishes a part right here, the difference is in what comes
+    # next (a new message, or the end of a request), not in the part that just ended.
+    next_part = all(r.at_boundary(len(shared)) for r in requests)
+    return PrefixCheck(
+        model=model,
+        requests=[
+            RequestPrefix(r.source, count_tokens(t, model).tokens, shared_tokens)
+            for r, t in zip(requests, texts, strict=True)
+        ],
+        shared_chars=len(shared),
+        identical=identical,
+        differences=[] if identical else [_difference(r, len(shared), next_part) for r in requests],
+        has_tools=any(s.label == "tools" for r in requests for s in r.segments),
+    )

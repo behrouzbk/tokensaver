@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import re
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -91,7 +92,84 @@ def count_raw(text: str, tokenizer: str) -> int:
 
 
 def count_tokens(text: str, model: ModelInfo) -> TokenCount:
-    """Count tokens for a model; non-exact models get a scaled estimate."""
-    raw = count_raw(text, model.tokenizer)
-    tokens = raw if model.exact else round(raw * model.estimate_factor)
-    return TokenCount(model=model.name, tokens=tokens, exact=model.exact)
+    """Count tokens for a model; non-exact models get a scaled estimate.
+
+    With `script_factors`, each part of the text written in a measured script (Arabic,
+    Thai, Gurmukhi, ...) is scaled by that script's factor and the rest by
+    `estimate_factor`. Text with none of those scripts is scaled exactly as before.
+    """
+    if model.exact:
+        return TokenCount(model=model.name, tokens=count_raw(text, model.tokenizer), exact=True)
+    factors = dict(model.script_factors)
+    if not factors or not _SCRIPT_CHARS.search(text):
+        tokens = round(count_raw(text, model.tokenizer) * model.estimate_factor)
+    else:
+        tokens = round(
+            sum(
+                count_raw(part, model.tokenizer) * factors.get(script, model.estimate_factor)
+                for script, part in script_runs(text)
+            )
+        )
+    return TokenCount(model=model.name, tokens=tokens, exact=False)
+
+
+# Writing systems with a measured factor in prices.json (`script_factors`). Everything
+# else (Latin letters, other scripts) uses the model's `estimate_factor`.
+SCRIPT_RANGES: dict[str, list[tuple[int, int]]] = {
+    "Arabic": [
+        (0x0600, 0x06FF),
+        (0x0750, 0x077F),
+        (0x08A0, 0x08FF),
+        (0xFB50, 0xFDFF),
+        (0xFE70, 0xFEFF),
+    ],
+    "Hebrew": [(0x0590, 0x05FF), (0xFB1D, 0xFB4F)],
+    "Devanagari": [(0x0900, 0x097F), (0xA8E0, 0xA8FF)],
+    "Gurmukhi": [(0x0A00, 0x0A7F)],
+    "Thai": [(0x0E00, 0x0E7F)],
+    "Hangul": [(0x1100, 0x11FF), (0x3130, 0x318F), (0xAC00, 0xD7AF)],
+    "Cyrillic": [(0x0400, 0x052F)],
+    "Han": [(0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF)],
+    "Kana": [(0x3040, 0x309F), (0x30A0, 0x30FF), (0x31F0, 0x31FF)],
+}
+_SCRIPT_CHARS = re.compile(
+    "["
+    + "".join(f"\\u{lo:04x}-\\u{hi:04x}" for ranges in SCRIPT_RANGES.values() for lo, hi in ranges)
+    + "]"
+)
+_KANA = re.compile("[぀-ヿㇰ-ㇿ]")
+
+
+def _script_of(char: str) -> str | None:
+    code = ord(char)
+    for script, ranges in SCRIPT_RANGES.items():
+        if any(lo <= code <= hi for lo, hi in ranges):
+            return script
+    return None
+
+
+def script_runs(text: str) -> list[tuple[str, str]]:
+    """Split text into (script, part) runs. Script is one of SCRIPTS or "other".
+
+    Spaces, digits and punctuation stay in the run they sit in. Han characters count as
+    Japanese when the text has any kana, and as Chinese otherwise.
+    """
+    japanese = bool(_KANA.search(text))
+    runs: list[tuple[str, str]] = []
+    current: str | None = None
+    start = 0
+    for i, char in enumerate(text):
+        script = _script_of(char)
+        if script in ("Han", "Kana"):
+            script = "Japanese" if japanese else "Chinese"
+        elif script is None:
+            if not char.isalpha():
+                continue  # neutral: belongs to the current run
+            script = "other"
+        if current is None:
+            current = script
+        elif script != current:
+            runs.append((current, text[start:i]))
+            current, start = script, i
+    runs.append((current or "other", text[start:]))
+    return runs

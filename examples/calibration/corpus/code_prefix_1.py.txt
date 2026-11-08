@@ -1,0 +1,155 @@
+"""Check that requests share the same prefix, so prompt caching can reuse it.
+
+Providers cache the start of a request (tools, then system prompt, then messages) and
+reuse it only when the next request starts with exactly the same content. One field that
+changes on every call, such as a timestamp near the top of the system prompt, means the
+prefix never matches and every call pays the full input price.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+from dataclasses import dataclass
+
+from tokensaver.counter import count_tokens
+from tokensaver.pricing import ModelInfo
+from tokensaver.request import parse_tools, tools_text
+
+# Keys that mark a JSON object as a request body rather than plain prompt text.
+BODY_KEYS = ("tools", "system", "instructions", "messages", "input")
+FIXED_ROLES = ("system", "developer")
+SNIPPET_BEFORE = 20
+SNIPPET_AFTER = 40
+
+# Values that typically change on every call. Checked in order; the first match wins.
+DYNAMIC_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    (
+        "UUID or session ID",
+        re.compile(
+            r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+        ),
+    ),
+    (
+        "date/time",
+        re.compile(
+            r"\b\d{4}-\d{2}-\d{2}(?:[T ]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?"
+        ),
+    ),
+    ("time", re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")),
+    ("hex ID", re.compile(r"\b[0-9a-fA-F]{16,}\b")),
+    ("timestamp or long number", re.compile(r"\b\d{9,}\b")),
+]
+
+class RequestInputError(ValueError):
+    """An input could not be read as a request."""
+
+@dataclass(frozen=True)
+class Segment:
+    label: str  # "tools", "system", "messages[2] (user)", ...
+    text: str
+    fixed: bool  # sent the same way on every call (tools, system prompt)
+    header: int = 0  # length of a leading "role" line; positions are reported after it
+
+@dataclass(frozen=True)
+class RenderedRequest:
+    source: str
+    segments: list[Segment]
+
+    @property
+    def text(self) -> str:
+        return "\n".join(s.text for s in self.segments)
+
+    def locate(self, offset: int, next_part: bool = False) -> tuple[Segment | None, int]:
+        """The segment holding a character offset of `text`, and the offset inside it.
+
+        An offset on the separator after a segment belongs to that segment (its end),
+        or to the segment after it when `next_part` is set.
+        """
+        start = 0
+        for i, segment in enumerate(self.segments):
+            end = start + len(segment.text)
+            if offset < end or (offset == end and not next_part):
+                return segment, offset - start
+            if offset == end:
+                following = self.segments[i + 1] if i + 1 < len(self.segments) else None
+                return following, 0
+            start = end + 1  # the "\n" between segments
+        return None, 0
+
+    def at_boundary(self, offset: int) -> bool:
+        """The offset is where a segment ends (or the whole request ends)."""
+        end = -1
+        for segment in self.segments:
+            end += 1 + len(segment.text)
+            if offset == end:
+                return True
+        return offset >= len(self.text)
+
+@dataclass(frozen=True)
+class Difference:
+    source: str
+    part: str | None  # None: the request ends where the others go on
+    fixed: bool
+    line: int  # 1-based inside the part's text; 0 when the message roles differ
+    column: int
+    snippet: str
+    dynamic: str | None  # what the differing value looks like, if recognised
+
+@dataclass(frozen=True)
+class RequestPrefix:
+    source: str
+    tokens: int
+    shared_tokens: int
+
+    @property
+    def rest_tokens(self) -> int:
+        return max(self.tokens - self.shared_tokens, 0)
+
+@dataclass(frozen=True)
+class PrefixCheck:
+    model: ModelInfo
+    requests: list[RequestPrefix]
+    shared_chars: int
+    identical: bool
+    differences: list[Difference]  # one per request, empty when identical
+    has_tools: bool
+
+    @property
+    def shared_tokens(self) -> int:
+        return self.requests[0].shared_tokens if self.requests else 0
+
+    @property
+    def fixed_differs(self) -> bool:
+        """The requests part ways in the tools or system prompt, not in the user turn."""
+        return any(d.fixed for d in self.differences)
+
+    @property
+    def exact(self) -> bool:
+        return self.model.exact and not self.has_tools
+
+def _compact(value: object) -> str:
+    return (
+        value
+        if isinstance(value, str)
+        else json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+    )
+
+def _role(message: object) -> str:
+    return str(message.get("role", "")) if isinstance(message, dict) else ""
+
+def _message(label: str, message: object) -> Segment:
+    """A chat message as its role line plus its content, so positions point into the text.
+
+    Anything besides the role and string content (content parts, tool calls, names) is
+    compared as compact JSON after the content.
+    """
+    if not isinstance(message, dict):
+        return Segment(label, _compact(message), False)
+    role = _role(message)
+    rest = {k: v for k, v in message.items() if k != "role"}
+    content = rest.pop("content") if isinstance(rest.get("content"), str) else ""
+    text = content + ("\n" + _compact(rest) if rest else "")
+    header = f"{role}\n"
+    return Segment(label, header + text, role in FIXED_ROLES, header=len(header))

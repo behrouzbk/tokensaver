@@ -93,6 +93,9 @@ def test_exact_model_ignores_estimate_factor() -> None:
         (lambda r: r["models"]["demo-model"].update(cache_write_per_1m=-1), "negative"),
         (lambda r: r["models"]["demo-model"].update(min_cacheable_tokens=1.5), "whole"),
         (lambda r: r["models"]["demo-model"].update(min_cacheable_tokens=-1), "whole"),
+        (lambda r: r["models"]["demo-model"].update(script_factors={"Klingon": 2}), "unknown"),
+        (lambda r: r["models"]["demo-model"].update(script_factors={"Thai": 0}), "positive"),
+        (lambda r: r["models"]["demo-model"].update(script_factors=[1]), "object"),
     ],
 )
 def test_invalid_price_data_is_rejected(change, message: str) -> None:
@@ -137,3 +140,16 @@ def test_bundled_models_all_have_cache_prices() -> None:
         assert model.caches, model.name
         assert 0 < model.cached_input_per_1m < model.input_per_1m, model.name
         assert model.write_per_1m >= model.input_per_1m, model.name
+
+
+def test_script_factors_are_parsed() -> None:
+    raw = copy.deepcopy(VALID)
+    raw["models"]["demo-model"]["script_factors"] = {"Thai": 2.4, "Chinese": 1.5}
+    model = parse_prices(raw).get("demo-model")
+    assert dict(model.script_factors) == {"Thai": 2.4, "Chinese": 1.5}
+
+
+def test_exact_model_ignores_script_factors() -> None:
+    raw = copy.deepcopy(VALID)
+    raw["models"]["demo-model"].update(exact=True, script_factors={"Thai": 2.4})
+    assert parse_prices(raw).get("demo-model").script_factors == ()

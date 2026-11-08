@@ -1,0 +1,168 @@
+{
+  "_comment": "Prices in USD per 1M tokens, standard tier, short-context rates. Edit freely, then update last_updated. tokenizer + exact=true only for models tiktoken maps to that encoding; every other model needs an estimate_factor (multiplier on the tokenizer count). Caching: cached_input_per_1m is the cache-read price; cache_write_per_1m is the price of writing the default (shortest) cache and is left out when writes cost the normal input price; min_cacheable_tokens is left out when the provider does not publish one.",
+  "last_updated": "2026-11-07",
+  "models": {
+    "gpt-6-astra": {
+      "provider": "OpenAI",
+      "input_per_1m": 10.0,
+      "output_per_1m": 50.0,
+      "cached_input_per_1m": 1.0,
+      "cache_write_per_1m": 12.5,
+      "min_cacheable_tokens": 1024,
+      "tokenizer": "o200k_base",
+      "exact": false,
+      "estimate_factor": 1.0,
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "notes": "tiktoken has no published encoding for GPT-6 yet; o200k_base used as an estimate."
+    },
+    "gpt-6.1-sol": {
+      "provider": "OpenAI",
+      "input_per_1m": 2.0,
+      "output_per_1m": 10.0,
+      "cached_input_per_1m": 0.1,
+      "cache_write_per_1m": 2.5,
+      "min_cacheable_tokens": 1024,
+      "tokenizer": "o200k_base",
+      "exact": false,
+      "estimate_factor": 1.0,
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "notes": "tiktoken has no published encoding for GPT-6 yet; o200k_base used as an estimate."
+    },
+    "gpt-6-luna": {
+      "provider": "OpenAI",
+      "input_per_1m": 0.1,
+      "output_per_1m": 0.5,
+      "cached_input_per_1m": 0.01,
+      "cache_write_per_1m": 0.125,
+      "min_cacheable_tokens": 1024,
+      "tokenizer": "o200k_base",
+      "exact": false,
+      "estimate_factor": 1.0,
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "notes": "tiktoken has no published encoding for GPT-6 yet; o200k_base used as an estimate."
+    },
+    "gpt-5.5": {
+      "provider": "OpenAI",
+      "input_per_1m": 5.0,
+      "output_per_1m": 30.0,
+      "cached_input_per_1m": 0.5,
+      "tokenizer": "o200k_base",
+      "exact": true,
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "notes": "No cache-write charge; minimum cacheable length varies with request settings."
+    },
+    "gpt-5.4-mini": {
+      "provider": "OpenAI",
+      "input_per_1m": 0.75,
+      "output_per_1m": 4.5,
+      "cached_input_per_1m": 0.075,
+      "tokenizer": "o200k_base",
+      "exact": true,
+      "source_url": "https://developers.openai.com/api/docs/pricing"
+    },
+    "gpt-5-mini": {
+      "provider": "OpenAI",
+      "input_per_1m": 0.25,
+      "output_per_1m": 2.0,
+      "cached_input_per_1m": 0.025,
+      "tokenizer": "o200k_base",
+      "exact": true,
+      "source_url": "https://developers.openai.com/api/docs/pricing"
+    },
+    "gpt-4.1": {
+      "provider": "OpenAI",
+      "input_per_1m": 2.0,
+      "output_per_1m": 8.0,
+      "cached_input_per_1m": 0.5,
+      "tokenizer": "o200k_base",
+      "exact": true,
+      "source_url": "https://developers.openai.com/api/docs/pricing"
+    },
+    "gpt-4.1-mini": {
+      "provider": "OpenAI",
+      "input_per_1m": 0.4,
+      "output_per_1m": 1.6,
+      "cached_input_per_1m": 0.1,
+      "tokenizer": "o200k_base",
+      "exact": true,
+      "source_url": "https://developers.openai.com/api/docs/pricing"
+    },
+    "gpt-4o": {
+      "provider": "OpenAI",
+      "input_per_1m": 2.5,
+      "output_per_1m": 10.0,
+      "cached_input_per_1m": 1.25,
+      "tokenizer": "o200k_base",
+      "exact": true,
+      "source_url": "https://developers.openai.com/api/docs/pricing"
+    },
+    "gpt-4o-mini": {
+      "provider": "OpenAI",
+      "input_per_1m": 0.15,
+      "output_per_1m": 0.6,
+      "cached_input_per_1m": 0.075,
+      "tokenizer": "o200k_base",
+      "exact": true,
+      "source_url": "https://developers.openai.com/api/docs/pricing"
+    },
+    "claude-fable-5-1": {
+      "provider": "Anthropic",
+      "input_per_1m": 10.0,
+      "output_per_1m": 50.0,
+      "cached_input_per_1m": 0.25,
+      "cache_write_per_1m": 12.5,
+      "min_cacheable_tokens": 512,
+      "tokenizer": "o200k_base",
+      "exact": false,
+      "estimate_factor": 1.5,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "claude-opus-5-5": {
+      "provider": "Anthropic",
+      "input_per_1m": 4.0,
+      "output_per_1m": 20.0,
+      "cached_input_per_1m": 0.2,
+      "cache_write_per_1m": 5.0,
+      "min_cacheable_tokens": 512,
+      "tokenizer": "o200k_base",
+      "exact": false,
+      "estimate_factor": 1.5,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "claude-sonnet-5-5": {
+      "provider": "Anthropic",
+      "input_per_1m": 2.0,
+      "output_per_1m": 10.0,
+      "cached_input_per_1m": 0.1,
+      "cache_write_per_1m": 2.5,
+      "min_cacheable_tokens": 512,
+      "tokenizer": "o200k_base",
+      "exact": false,
+      "estimate_factor": 1.5,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "claude-haiku-5-5": {
+      "provider": "Anthropic",
+      "input_per_1m": 0.1,
+      "output_per_1m": 0.5,
+      "cached_input_per_1m": 0.01,
+      "cache_write_per_1m": 0.125,
+      "min_cacheable_tokens": 512,
+      "tokenizer": "o200k_base",
+      "exact": false,
+      "estimate_factor": 1.5,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "notes": "Price for prompts up to 100K tokens; $0.50 / $2.50 (cached input $0.05) above that."
+    },
+    "claude-haiku-4-5": {
+      "provider": "Anthropic",
+      "input_per_1m": 1.0,
+      "output_per_1m": 5.0,
+      "cached_input_per_1m": 0.1,
+      "cache_write_per_1m": 1.25,
+      "min_cacheable_tokens": 4096,
+      "tokenizer": "o200k_base",
+      "exact": false,
+      "estimate_factor": 1.15,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "no

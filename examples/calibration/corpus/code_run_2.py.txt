@@ -1,0 +1,109 @@
+def _sentences(text: str) -> int:
+    prose = re.sub(r"```.*?```", " ", text, flags=re.S)
+    prose = re.sub(r"\{.*?\}", " ", prose, flags=re.S)
+    prose = re.sub(r"^\s*[-*\d.]+\s+", "", prose, flags=re.M)  # list markers
+    parts = re.split(r"(?<=[.!?])\s+|\n+", prose)
+    return sum(1 for p in parts if re.search(r"[A-Za-z]{2,}", p))
+
+def run_check(check: dict, conv: Conversation) -> tuple[bool, str]:
+    reply, called = conv.reply, [c["name"] for c in conv.tool_calls]
+    kind = check["type"]
+    if kind == "no_tool":
+        ok = check["tool"] not in called
+        return ok, f"{check['tool']} {'not called' if ok else 'was called'}"
+    if kind == "tool_called":
+        ok = check["tool"] in called
+        return ok, f"{check['tool']} {'called' if ok else 'not called'}"
+    if kind == "no_dates":
+        extra = sorted(set(DATE.findall(reply)) - set(check.get("allowed", [])))
+        return not extra, f"dates not in the data: {extra}" if extra else "no invented dates"
+    if kind == "json_order":
+        want = check["fields"]
+        for obj in _json_objects(reply):
+            if all(str(obj.get(k)) == v for k, v in want.items()):
+                return True, "JSON order object found"
+        return False, "no JSON object with the order's fields"
+    if kind == "no_script":
+        lo, hi = int(check["start"], 16), int(check["end"], 16)
+        ok = not any(lo <= ord(ch) <= hi for ch in reply)
+        return ok, f"{'no' if ok else 'contains'} {check['name']} text"
+    if kind == "not_contains":
+        ok = not re.search(check["pattern"], reply)
+        return ok, "forbidden text absent" if ok else "forbidden text present"
+    if kind == "max_sentences":
+        n = _sentences(reply)
+        return n <= check["max"], f"{n} sentences (max {check['max']})"
+    raise ValueError(f"Unknown check type: {kind}")
+
+# --- judge -------------------------------------------------------------------------
+
+JUDGE_SYSTEM = (
+    "You grade replies from a customer-support chatbot for an online electronics store. "
+    "Answer each question about the bot's final reply with true or false, and give a "
+    "one-sentence reason. Judge only what the reply says, not whether you like its style."
+)
+
+def judge(client, model, case: dict, conv: Conversation) -> list[dict]:
+    questions = case["judge"]
+    if not questions:
+        return []
+    lines = [f"Customer: {t['text']}" if t["role"] == "user" else None for t in conv.transcript]
+    shown = "\n".join(line for line in lines if line)
+    tools = "; ".join(f"{c['name']}({json.dumps(c['input'])})" for c in conv.tool_calls) or "none"
+    prompt = (
+        f"Customer messages:\n{shown}\n\nTools the bot called: {tools}\n\n"
+        f"Bot's final reply:\n<reply>\n{conv.reply}\n</reply>\n\nQuestions:\n"
+        + "\n".join(f"{i + 1}. {q}" for i, q in enumerate(questions))
+    )
+    # One required property per question, so the judge cannot skip or merge answers.
+    item = {
+        "type": "object",
+        "properties": {"answer": {"type": "boolean"}, "reason": {"type": "string"}},
+        "required": ["answer", "reason"],
+        "additionalProperties": False,
+    }
+    keys = [f"q{i + 1}" for i in range(len(questions))]
+    schema = {
+        "type": "object",
+        "properties": dict.fromkeys(keys, item),
+        "required": keys,
+        "additionalProperties": False,
+    }
+    response = client.messages.create(
+        model=model,
+        max_tokens=2000,
+        system=JUDGE_SYSTEM,
+        output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
+        messages=[{"role": "user", "content": prompt}],
+    )
+    conv.usage.setdefault("judge_input", 0)
+    conv.usage.setdefault("judge_output", 0)
+    conv.usage["judge_input"] += response.usage.input_tokens
+    conv.usage["judge_output"] += response.usage.output_tokens
+    data = json.loads(_text(response.content))
+    missing = [k for k in keys if k not in data]
+    if missing:
+        raise ValueError(f"Judge skipped {', '.join(missing)}")
+    return [
+        {"question": q, "answer": data[k]["answer"], "reason": data[k]["reason"]}
+        for q, k in zip(questions, keys, strict=True)
+    ]
+
+# --- grading and report ---------------------------------------------------------------
+
+def grade(client, judge_model, case, conv) -> dict:
+    if conv.error:
+        return {"outcome": "error", "detail": conv.error}
+    if conv.stop_reason == "refusal":
+        return {"outcome": "refusal", "detail": "the model declined"}
+    checks = [dict(zip(("ok", "detail"), run_check(c, conv), strict=True)) for c in case["checks"]]
+    try:
+        verdicts = judge(client, judge_model, case, conv)
+    except Exception as error:
+        return {"outcome": "error", "detail": f"judge: {error}", "checks": checks}
+    passed = all(c["ok"] for c in checks) and all(v["answer"] for v in verdicts)
+    return {"outcome": "pass" if passed else "fail", "checks": checks, "judge": verdicts}
+
+def cost(model: str, tokens_in: int, tokens_out: int) -> float:
+    price_in, price_out = PRICES.get(model, (0.0, 0.0))
+    return (tokens_in * price_in + tokens_out * price_out) / 1_000_000

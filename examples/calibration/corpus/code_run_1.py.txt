@@ -1,0 +1,147 @@
+"""Behaviour test: does the cleaned support-bot prompt behave like the original?
+
+Runs every case in cases.json against two system prompts (A = original, B = cleaned)
+with the same tools and model, several times each, and reports pass rates per case.
+
+    pip install anthropic
+    python run.py --dry-run          # no API calls: checks cases, tools and graders
+    python run.py                    # the real run (calls the Anthropic API)
+
+This script calls a model API, so it lives outside the tokensaver package: tokensaver
+itself never makes network calls. Credentials come from ANTHROPIC_API_KEY or an
+`ant auth login` profile.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
+HERE = Path(__file__).parent
+PROMPTS = {"A": HERE / "prompt_original.txt", "B": HERE / "prompt_cleaned.txt"}
+TOOLS_FILE = HERE.parent / "tools.json"
+CASES_FILE = HERE / "cases.json"
+
+DEFAULT_MODEL = "claude-sonnet-5-5"
+DEFAULT_JUDGE = "claude-haiku-5-5"
+MAX_TOOL_ROUNDS = 5
+DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+
+# Prices per 1M tokens (input, output), for the cost line only. Checked 2026-11-07.
+PRICES = {"claude-sonnet-5-5": (2.0, 10.0), "claude-haiku-5-5": (0.10, 0.50)}
+
+# --- tools -------------------------------------------------------------------
+
+def anthropic_tools(openai_tools: list[dict]) -> list[dict]:
+    """OpenAI-format tools to Anthropic format, with the same names and wording."""
+    out = []
+    for tool in openai_tools:
+        fn = tool["function"]
+        out.append(
+            {
+                "name": fn["name"],
+                "description": fn.get("description", ""),
+                "input_schema": fn.get("parameters", {"type": "object", "properties": {}}),
+            }
+        )
+    return out
+
+def fake_tool(name: str, args: dict, orders: dict) -> str:
+    """Fixed tool results, so every run sees the same data."""
+    order = orders.get(str(args.get("order_id", "")).strip().upper())
+    if name == "get_order_status":
+        return json.dumps(order if order else {"error": "order not found"})
+    if name == "create_refund":
+        if not order:
+            return json.dumps({"error": "order not found"})
+        return json.dumps(
+            {"refund_id": "R-5521", "order_id": order["order_id"], "status": "started"}
+        )
+    return json.dumps({"error": f"unknown tool {name}"})
+
+# --- one conversation ----------------------------------------------------------
+
+@dataclass
+class Conversation:
+    case_id: str
+    arm: str
+    run: int
+    reply: str = ""
+    tool_calls: list[dict] = field(default_factory=list)
+    transcript: list[dict] = field(default_factory=list)
+    stop_reason: str = ""
+    error: str = ""
+    usage: dict = field(default_factory=lambda: {"input": 0, "output": 0})
+
+def _text(content) -> str:
+    return "\n".join(b.text for b in content if b.type == "text").strip()
+
+def _add_usage(conv: Conversation, usage) -> None:
+    conv.usage["input"] += (
+        usage.input_tokens
+        + (getattr(usage, "cache_creation_input_tokens", 0) or 0)
+        + (getattr(usage, "cache_read_input_tokens", 0) or 0)
+    )
+    conv.usage["output"] += usage.output_tokens
+
+def run_conversation(client, model, system, tools, case, orders, arm, run) -> Conversation:
+    conv = Conversation(case_id=case["id"], arm=arm, run=run)
+    messages: list = []
+    try:
+        for turn in case["turns"]:
+            messages.append({"role": "user", "content": turn})
+            conv.transcript.append({"role": "user", "text": turn})
+            for _ in range(MAX_TOOL_ROUNDS + 1):
+                response = client.messages.create(
+                    model=model,
+                    max_tokens=4000,
+                    system=system,
+                    tools=tools,
+                    output_config={"effort": "low"},
+                    messages=messages,
+                )
+                _add_usage(conv, response.usage)
+                conv.stop_reason = response.stop_reason
+                messages.append({"role": "assistant", "content": response.content})
+                text = _text(response.content)
+                if text:
+                    conv.transcript.append({"role": "assistant", "text": text})
+                if response.stop_reason == "refusal":
+                    return conv
+                calls = [b for b in response.content if b.type == "tool_use"]
+                if response.stop_reason != "tool_use" or not calls:
+                    conv.reply = text
+                    break
+                results = []
+                for call in calls:
+                    result = fake_tool(call.name, call.input, orders)
+                    conv.tool_calls.append({"name": call.name, "input": call.input})
+                    conv.transcript.append(
+                        {"role": "tool", "name": call.name, "input": call.input, "result": result}
+                    )
+                    results.append(
+                        {"type": "tool_result", "tool_use_id": call.id, "content": result}
+                    )
+                messages.append({"role": "user", "content": results})
+    except Exception as error:  # recorded, never counted as a pass
+        conv.error = f"{type(error).__name__}: {error}"
+    return conv
+
+# --- checks in code ----------------------------------------------------------------
+
+def _json_objects(text: str) -> list[dict]:
+    decoder, found = json.JSONDecoder(), []
+    for match in re.finditer(r"\{", text):
+        try:
+            value, _ = decoder.raw_decode(text, match.start())
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            found.append(value)
+    return found

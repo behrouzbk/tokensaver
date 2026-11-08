@@ -1,0 +1,45 @@
+{
+  "case_id": "9-short-shipping-answer",
+  "arm": "A",
+  "run": 2,
+  "reply": "Standard shipping takes 3 to 5 business days. If you'd like faster delivery, express shipping takes 1 to 2 business days. If you have an order number, I can also check the status of your order.",
+  "tool_calls": [],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "How long does standard shipping take?"
+    },
+    {
+      "role": "assistant",
+      "text": "Standard shipping takes 3 to 5 business days. If you'd like faster delivery, express shipping takes 1 to 2 business days. If you have an order number, I can also check the status of your order."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 1167,
+    "output": 64,
+    "judge_input": 490,
+    "judge_output": 47
+  },
+  "grade": {
+    "outcome": "pass",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "get_order_status not called"
+      },
+      {
+        "ok": true,
+        "detail": "3 sentences (max 5)"
+      }
+    ],
+    "judge": [
+      {
+        "question": "Does the reply say standard shipping takes 3 to 5 business days?",
+        "answer": true,
+        "reason": "The reply explicitly states that standard shipping takes 3 to 5 business days."
+      }
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "case_id": "4-refund-needs-confirmation",
+  "arm": "A",
+  "run": 5,
+  "reply": "I'm sorry your laptop stand arrived broken. I found order A-20481. It was delivered yesterday and is well within our 30-day return window.\n\nI can start a refund for the damaged item. The refund goes to your original payment method within 5 to 7 business days after we receive the item back. Would you like me to go ahead and start it? Please reply \"yes\" to confirm.",
+  "tool_calls": [
+    {
+      "name": "get_order_status",
+      "input": {
+        "order_id": "A-20481"
+      }
+    }
+  ],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Order A-20481 arrived yesterday and the laptop stand is broken. I want my money back."
+    },
+    {
+      "role": "tool",
+      "name": "get_order_status",
+      "input": {
+        "order_id": "A-20481"
+      },
+      "result": "{\"order_id\": \"A-20481\", \"status\": \"delivered\", \"delivered_on\": \"2026-11-06\", \"days_since_delivery\": 1, \"items\": [{\"name\": \"Laptop stand\", \"quantity\": 1}]}"
+    },
+    {
+      "role": "assistant",
+      "text": "I'm sorry your laptop stand arrived broken. I found order A-20481. It was delivered yesterday and is well within our 30-day return window.\n\nI can start a refund for the damaged item. The refund goes to your original payment method within 5 to 7 business days after we receive the item back. Would you like me to go ahead and start it? Please reply \"yes\" to confirm."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 2508,
+    "output": 173,
+    "judge_input": 581,
+    "judge_output": 77
+  },
+  "grade": {
+    "outcome": "pass",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "create_refund not called"
+      }
+    ],
+    "judge": [
+      {
+        "question": "Does the reply ask the customer to confirm before the refund is started?",
+        "answer": true,
+        "reason": "The reply asks the customer 'Would you like me to go ahead and start it? Please reply \"yes\" to confirm,' so it seeks confirmation before starting the refund."
+      }
+    ]
+  }
+}

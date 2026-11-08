@@ -1,0 +1,56 @@
+{
+  "case_id": "2-order-lookup-json",
+  "arm": "A",
+  "run": 3,
+  "reply": "Here are the details for your order:\n\n```json\n{\n    \"order_id\": \"A-10293\",\n    \"status\": \"shipped\",\n    \"estimated_delivery\": \"2026-11-12\",\n    \"items\": [\n        {\n            \"name\": \"USB-C charger\",\n            \"quantity\": 1\n        }\n    ]\n}\n```\n\nYour order has shipped and is estimated to arrive on 2026-11-12. Is there anything else I can help you with?",
+  "tool_calls": [
+    {
+      "name": "get_order_status",
+      "input": {
+        "order_id": "A-10293"
+      }
+    }
+  ],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Can you check order A-10293 for me?"
+    },
+    {
+      "role": "tool",
+      "name": "get_order_status",
+      "input": {
+        "order_id": "A-10293"
+      },
+      "result": "{\"order_id\": \"A-10293\", \"status\": \"shipped\", \"estimated_delivery\": \"2026-11-12\", \"items\": [{\"name\": \"USB-C charger\", \"quantity\": 1}]}"
+    },
+    {
+      "role": "assistant",
+      "text": "Here are the details for your order:\n\n```json\n{\n    \"order_id\": \"A-10293\",\n    \"status\": \"shipped\",\n    \"estimated_delivery\": \"2026-11-12\",\n    \"items\": [\n        {\n            \"name\": \"USB-C charger\",\n            \"quantity\": 1\n        }\n    ]\n}\n```\n\nYour order has shipped and is estimated to arrive on 2026-11-12. Is there anything else I can help you with?"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 2462,
+    "output": 192
+  },
+  "grade": {
+    "outcome": "pass",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "get_order_status called"
+      },
+      {
+        "ok": true,
+        "detail": "JSON order object found"
+      },
+      {
+        "ok": true,
+        "detail": "no invented dates"
+      }
+    ],
+    "judge": []
+  }
+}

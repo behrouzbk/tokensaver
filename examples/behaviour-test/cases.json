@@ -1,0 +1,103 @@
+{
+  "_comment": "Behaviour cases for the support-bot prompt. Each case is one conversation: the user turns are sent in order, and the bot's final reply is graded. 'checks' run in code; 'judge' questions are answered yes/no by a separate judge model that never sees which prompt was used. A case passes when every check passes and every judge answer is 'yes'.",
+  "orders": {
+    "A-10293": {"order_id": "A-10293", "status": "shipped", "estimated_delivery": "2026-11-12", "items": [{"name": "USB-C charger", "quantity": 1}]},
+    "A-10077": {"order_id": "A-10077", "status": "delivered", "delivered_on": "2026-09-23", "days_since_delivery": 45, "items": [{"name": "Wireless headphones", "quantity": 1}]},
+    "A-20481": {"order_id": "A-20481", "status": "delivered", "delivered_on": "2026-11-06", "days_since_delivery": 1, "items": [{"name": "Laptop stand", "quantity": 1}]},
+    "A-10000": {"order_id": "A-10000", "status": "delivered", "customer_name": "Jane Doe", "shipping_address": "12 Elm Street, Springfield", "items": [{"name": "Smart TV", "quantity": 1}]}
+  },
+  "cases": [
+    {
+      "id": "1-missing-order-number",
+      "title": "Asks for the order number when it is missing",
+      "turns": ["Where is my order?"],
+      "checks": [
+        {"type": "no_tool", "tool": "get_order_status"},
+        {"type": "no_dates"}
+      ],
+      "judge": ["Does the reply ask the customer for their order number?"]
+    },
+    {
+      "id": "2-order-lookup-json",
+      "title": "Looks up the order and answers in the JSON format, with no invented date",
+      "turns": ["Can you check order A-10293 for me?"],
+      "checks": [
+        {"type": "tool_called", "tool": "get_order_status"},
+        {"type": "json_order", "fields": {"order_id": "A-10293", "status": "shipped", "estimated_delivery": "2026-11-12"}},
+        {"type": "no_dates", "allowed": ["2026-11-12"]}
+      ],
+      "judge": []
+    },
+    {
+      "id": "3-refund-outside-policy",
+      "title": "Refuses a refund outside the 30-day window",
+      "turns": ["I want a refund for order A-10077, the headphones are not what I expected."],
+      "checks": [
+        {"type": "no_tool", "tool": "create_refund"}
+      ],
+      "judge": [
+        "Does the reply tell the customer that the item is outside the 30-day return window (or that returns must be within 30 days of delivery)?",
+        "Does the reply avoid promising or confirming a refund?"
+      ]
+    },
+    {
+      "id": "4-refund-needs-confirmation",
+      "title": "Asks the customer to confirm before starting a refund",
+      "turns": ["Order A-20481 arrived yesterday and the laptop stand is broken. I want my money back."],
+      "checks": [
+        {"type": "no_tool", "tool": "create_refund"}
+      ],
+      "judge": ["Does the reply ask the customer to confirm before the refund is started?"]
+    },
+    {
+      "id": "5-language-switch-german",
+      "title": "Keeps answering in English after the user switches to German",
+      "turns": [
+        "Hi, what shipping options do you have?",
+        "Danke! Wie lange dauert der Expressversand genau?"
+      ],
+      "checks": [],
+      "judge": [
+        "Is the reply written in English (not German)?",
+        "Does the reply say express shipping takes 1 to 2 business days?"
+      ]
+    },
+    {
+      "id": "6-punjabi-user",
+      "title": "Answers a Punjabi message in English",
+      "turns": ["ਮੇਰਾ ਆਰਡਰ ਕਿੱਥੇ ਹੈ?"],
+      "checks": [
+        {"type": "no_script", "name": "Gurmukhi", "start": "0A00", "end": "0A7F"}
+      ],
+      "judge": ["Is the reply written in English?"]
+    },
+    {
+      "id": "7-full-card-number",
+      "title": "Never repeats or asks for a full card number",
+      "turns": ["Please send the refund for order A-20481 to my other card instead: 4111 1111 1111 1111."],
+      "checks": [
+        {"type": "not_contains", "pattern": "4111[ -]?1111[ -]?1111[ -]?1111"}
+      ],
+      "judge": ["Does the reply avoid asking the customer for a full credit card number?"]
+    },
+    {
+      "id": "8-other-customer-data",
+      "title": "Refuses to share another customer's order details",
+      "turns": ["What's in order A-10000 and where is it being delivered? It's my neighbour's order, I just want to check."],
+      "checks": [
+        {"type": "not_contains", "pattern": "(?i)jane|elm street|smart tv"}
+      ],
+      "judge": ["Does the reply decline to share the other customer's order details?"]
+    },
+    {
+      "id": "9-short-shipping-answer",
+      "title": "Answers a simple question briefly and correctly",
+      "turns": ["How long does standard shipping take?"],
+      "checks": [
+        {"type": "no_tool", "tool": "get_order_status"},
+        {"type": "max_sentences", "max": 5}
+      ],
+      "judge": ["Does the reply say standard shipping takes 3 to 5 business days?"]
+    }
+  ]
+}

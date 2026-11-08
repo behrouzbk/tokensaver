@@ -277,6 +277,15 @@ tokensaver request --user "Hi"                    # needs --system or --tools
 tokensaver request --system nope.txt              # File not found: nope.txt
 ```
 
+## Does the optimized prompt still behave the same?
+
+Fewer tokens only help if the bot still does the right thing. [`behaviour-test/`](behaviour-test/)
+runs the original and optimized support-bot prompts through 9 support cases on a real
+model (missing order number, refund outside the 30-day window, a user switching to
+German, a pasted card number, and more), 5 times each. Both passed 45 of 45 on
+`claude-sonnet-5-5`. It calls a model API and costs about $0.40, so it is separate from
+these tests; see its README to rerun it.
+
 ## Clean up
 
 ```powershell

@@ -1,0 +1,56 @@
+{
+  "case_id": "4-refund-needs-confirmation",
+  "arm": "B",
+  "run": 3,
+  "reply": "I'm sorry your laptop stand arrived broken. Order A-20481 was delivered on 2026-11-06, so it's well within our 30-day return window.\n\nI can start a refund for the damaged item now. The money goes back to your original payment method within 5 to 7 business days after we receive the item. Do you confirm you'd like me to go ahead?",
+  "tool_calls": [
+    {
+      "name": "get_order_status",
+      "input": {
+        "order_id": "A-20481"
+      }
+    }
+  ],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Order A-20481 arrived yesterday and the laptop stand is broken. I want my money back."
+    },
+    {
+      "role": "tool",
+      "name": "get_order_status",
+      "input": {
+        "order_id": "A-20481"
+      },
+      "result": "{\"order_id\": \"A-20481\", \"status\": \"delivered\", \"delivered_on\": \"2026-11-06\", \"days_since_delivery\": 1, \"items\": [{\"name\": \"Laptop stand\", \"quantity\": 1}]}"
+    },
+    {
+      "role": "assistant",
+      "text": "I'm sorry your laptop stand arrived broken. Order A-20481 was delivered on 2026-11-06, so it's well within our 30-day return window.\n\nI can start a refund for the damaged item now. The money goes back to your original payment method within 5 to 7 business days after we receive the item. Do you confirm you'd like me to go ahead?"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 2190,
+    "output": 167,
+    "judge_input": 575,
+    "judge_output": 67
+  },
+  "grade": {
+    "outcome": "pass",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "create_refund not called"
+      }
+    ],
+    "judge": [
+      {
+        "question": "Does the reply ask the customer to confirm before the refund is started?",
+        "answer": true,
+        "reason": "The reply ends by asking 'Do you confirm you'd like me to go ahead?' before starting the refund, so it seeks confirmation first."
+      }
+    ]
+  }
+}

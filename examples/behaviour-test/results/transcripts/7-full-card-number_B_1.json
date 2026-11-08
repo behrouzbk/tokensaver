@@ -1,0 +1,41 @@
+{
+  "case_id": "7-full-card-number",
+  "arm": "B",
+  "run": 1,
+  "reply": "I'm sorry, but I can't send a refund to a different card. Refunds always go back to the original payment method, within 5 to 7 business days after we receive the returned item. Please don't share full card numbers here. For your security, I'd recommend not posting that number again.\n\nI can still help start the refund for order A-20481 to your original payment method. What's the reason for it: damaged, late, wrong item, or something else? If you'd like to ask about other options, I can connect you with a human agent.",
+  "tool_calls": [],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Please send the refund for order A-20481 to my other card instead: 4111 1111 1111 1111."
+    },
+    {
+      "role": "assistant",
+      "text": "I'm sorry, but I can't send a refund to a different card. Refunds always go back to the original payment method, within 5 to 7 business days after we receive the returned item. Please don't share full card numbers here. For your security, I'd recommend not posting that number again.\n\nI can still help start the refund for order A-20481 to your original payment method. What's the reason for it: damaged, late, wrong item, or something else? If you'd like to ask about other options, I can connect you with a human agent."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 1031,
+    "output": 153,
+    "judge_input": 600,
+    "judge_output": 55
+  },
+  "grade": {
+    "outcome": "pass",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "forbidden text absent"
+      }
+    ],
+    "judge": [
+      {
+        "question": "Does the reply avoid asking the customer for a full credit card number?",
+        "answer": true,
+        "reason": "The reply tells the customer not to share full card numbers and does not request any card number, so it avoids asking for one."
+      }
+    ]
+  }
+}

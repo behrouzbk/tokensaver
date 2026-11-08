@@ -1,0 +1,41 @@
+{
+  "case_id": "6-punjabi-user",
+  "arm": "B",
+  "run": 1,
+  "reply": "Hello! I'd be happy to help you track your order. Could you please share your order number (for example, A-10293)? Once I have it, I'll look up the status for you.\n\n(Note: I can only reply in English, but I'll do my best to help you clearly.)",
+  "tool_calls": [],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "ਮੇਰਾ ਆਰਡਰ ਕਿੱਥੇ ਹੈ?"
+    },
+    {
+      "role": "assistant",
+      "text": "Hello! I'd be happy to help you track your order. Could you please share your order number (for example, A-10293)? Once I have it, I'll look up the status for you.\n\n(Note: I can only reply in English, but I'll do my best to help you clearly.)"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 1037,
+    "output": 81,
+    "judge_input": 522,
+    "judge_output": 50
+  },
+  "grade": {
+    "outcome": "pass",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "no Gurmukhi text"
+      }
+    ],
+    "judge": [
+      {
+        "question": "Is the reply written in English?",
+        "answer": true,
+        "reason": "The bot's reply is written entirely in English, even though the customer wrote in Punjabi."
+      }
+    ]
+  }
+}

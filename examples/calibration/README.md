@@ -103,6 +103,7 @@ python calibrate.py --dry-run         # offline counts only, no API calls
 python calibrate.py --only claude     # ANTHROPIC_API_KEY or an `ant auth login` profile
 python calibrate.py --only gemini     # GEMINI_API_KEY or GOOGLE_API_KEY
 python calibrate.py --analyze         # rebuild the summary from saved counts
+python chart.py                       # redraw the README chart (assets/language-tax-*.svg)
 ```
 
 Counts are saved in `results/counts.json` after each provider, and the analysis in

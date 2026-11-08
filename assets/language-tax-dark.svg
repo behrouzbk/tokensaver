@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="494" viewBox="0 0 760 494" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" role="img" aria-label="Claude uses up to 3.9 times the GPT-4o token count for the same text; Gemini stays near 1">
+<rect width="760" height="494" rx="8" fill="#0d1117"/>
+<text x="24" y="32" font-size="16" font-weight="600" fill="#f0f6fc">Same text, different bill: Claude uses up to 3.9× GPT-4o’s tokens</text>
+<text x="24" y="54" font-size="12" fill="#9198a1">Tokens per GPT-4o token, same support-bot prompt in 12 languages, each provider’s own counter</text>
+<circle cx="30" cy="80" r="5" fill="#4493f8"/>
+<text x="42" y="84" font-size="12" fill="#f0f6fc">Claude (all 5.x models)</text>
+<circle cx="230" cy="80" r="5" fill="#6e7781"/>
+<text x="242" y="84" font-size="12" fill="#f0f6fc">Gemini 3.8 Flash</text>
+<line x1="150.0" x2="150.0" y1="108" y2="430" stroke="#3d444d"/><text x="150.0" y="446" text-anchor="middle" font-size="12" fill="#9198a1">0×</text>
+<line x1="287.5" x2="287.5" y1="108" y2="430" stroke="#3d444d"/><text x="287.5" y="446" text-anchor="middle" font-size="12" fill="#9198a1">1×</text>
+<line x1="425.0" x2="425.0" y1="108" y2="430" stroke="#3d444d"/><text x="425.0" y="446" text-anchor="middle" font-size="12" fill="#9198a1">2×</text>
+<line x1="562.5" x2="562.5" y1="108" y2="430" stroke="#3d444d"/><text x="562.5" y="446" text-anchor="middle" font-size="12" fill="#9198a1">3×</text>
+<line x1="700.0" x2="700.0" y1="108" y2="430" stroke="#3d444d"/><text x="700.0" y="446" text-anchor="middle" font-size="12" fill="#9198a1">4×</text>
+<line x1="287.5" x2="287.5" y1="108" y2="430" stroke="#9198a1" stroke-dasharray="4 4"/><text x="293.5" y="426" font-size="12" fill="#9198a1">same as GPT-4o</text>
+<text x="24" y="128" fill="#f0f6fc">Punjabi</text><line x1="300.1" x2="686.8" y1="124" y2="124" stroke="#3d444d" stroke-width="2"/><circle cx="300.1" cy="124" r="5" fill="#6e7781"/><circle cx="686.8" cy="124" r="5.5" fill="#4493f8"/>
+<text x="698.8" y="128" font-size="12" font-weight="600" fill="#f0f6fc">3.90×</text><text x="310.1" y="115" font-size="12" fill="#9198a1">1.09×</text>
+<text x="24" y="154" fill="#f0f6fc">Thai</text><line x1="264.3" x2="478.9" y1="150" y2="150" stroke="#3d444d" stroke-width="2"/><circle cx="264.3" cy="150" r="5" fill="#6e7781"/><circle cx="478.9" cy="150" r="5.5" fill="#4493f8"/>
+<text x="24" y="180" fill="#f0f6fc">Hindi</text><line x1="269.3" x2="468.3" y1="176" y2="176" stroke="#3d444d" stroke-width="2"/><circle cx="269.3" cy="176" r="5" fill="#6e7781"/><circle cx="468.3" cy="176" r="5.5" fill="#4493f8"/>
+<text x="24" y="206" fill="#f0f6fc">Arabic</text><line x1="311.7" x2="448.0" y1="202" y2="202" stroke="#3d444d" stroke-width="2"/><circle cx="311.7" cy="202" r="5" fill="#6e7781"/><circle cx="448.0" cy="202" r="5.5" fill="#4493f8"/>
+<text x="24" y="232" fill="#f0f6fc">German</text><line x1="297.4" x2="446.1" y1="228" y2="228" stroke="#3d444d" stroke-width="2"/><circle cx="297.4" cy="228" r="5" fill="#6e7781"/><circle cx="446.1" cy="228" r="5.5" fill="#4493f8"/>
+<text x="24" y="258" fill="#f0f6fc">Korean</text><line x1="289.8" x2="406.2" y1="254" y2="254" stroke="#3d444d" stroke-width="2"/><circle cx="289.8" cy="254" r="5" fill="#6e7781"/><circle cx="406.2" cy="254" r="5.5" fill="#4493f8"/>
+<text x="24" y="284" fill="#f0f6fc">Hebrew</text><line x1="321.2" x2="405.7" y1="280" y2="280" stroke="#3d444d" stroke-width="2"/><circle cx="321.2" cy="280" r="5" fill="#6e7781"/><circle cx="405.7" cy="280" r="5.5" fill="#4493f8"/>
+<text x="24" y="310" fill="#f0f6fc">French</text><line x1="300.3" x2="395.0" y1="306" y2="306" stroke="#3d444d" stroke-width="2"/><circle cx="300.3" cy="306" r="5" fill="#6e7781"/><circle cx="395.0" cy="306" r="5.5" fill="#4493f8"/>
+<text x="24" y="336" fill="#f0f6fc">Russian</text><line x1="295.9" x2="389.8" y1="332" y2="332" stroke="#3d444d" stroke-width="2"/><circle cx="295.9" cy="332" r="5" fill="#6e7781"/><circle cx="389.8" cy="332" r="5.5" fill="#4493f8"/>
+<text x="24" y="362" fill="#f0f6fc">Chinese</text><line x1="288.0" x2="359.4" y1="358" y2="358" stroke="#3d444d" stroke-width="2"/><circle cx="288.0" cy="358" r="5" fill="#6e7781"/><circle cx="359.4" cy="358" r="5.5" fill="#4493f8"/>
+<text x="24" y="388" fill="#f0f6fc">English</text><line x1="299.5" x2="355.5" y1="384" y2="384" stroke="#3d444d" stroke-width="2"/><circle cx="299.5" cy="384" r="5" fill="#6e7781"/><circle cx="355.5" cy="384" r="5.5" fill="#4493f8"/>
+<text x="24" y="414" fill="#f0f6fc">Japanese</text><line x1="258.5" x2="332.3" y1="410" y2="410" stroke="#3d444d" stroke-width="2"/><circle cx="258.5" cy="410" r="5" fill="#6e7781"/><circle cx="332.3" cy="410" r="5.5" fill="#4493f8"/>
+<text x="425.0" y="470" text-anchor="middle" font-size="12" fill="#9198a1">Tokens per GPT-4o token (higher costs more)</text>
+</svg>

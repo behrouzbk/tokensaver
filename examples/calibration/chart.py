@@ -71,7 +71,8 @@ def svg(counts: dict, theme: dict[str, str]) -> str:
     t = theme
     font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
     out = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 {height}" '
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="760" height="{height}" '
+        f'viewBox="0 0 760 {height}" '
         f'font-family="{font}" font-size="13" role="img" '
         'aria-label="Claude uses up to 3.9 times the GPT-4o token count for the same text; '
         'Gemini stays near 1">',

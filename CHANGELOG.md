@@ -5,6 +5,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Gemini token estimates are now calibrated against Google's `countTokens` (#3), with the
+  same per-script factors as Claude. Gemini's language gap is small: 0.79 (Japanese) to
+  1.24 (Hebrew) tokens per o200k token, so the old estimates were up to 42% too high on
+  Thai and Japanese. The default factor goes from 1.05 to 1.10, which brings code and
+  JSON closer (now about 7-10% low instead of 12-14%) and English prose to +2%.
+- `gemini-2.5-flash` and `gemini-2.5-flash-lite` are closed to new API users, so they
+  could not be measured. They stay listed, with a note, and use Gemini 3.8 Flash's
+  factors.
+
+### Fixed
+- Estimates for text that mixes scripts counted each script's part separately, which
+  added a token at almost every switch (+6% on the 55-language sample). The whole text
+  is now tokenized once and each token is weighted by its script, so the total always
+  matches the o200k count. This makes the 0.7.0 Claude numbers for mixed text a little
+  less flattering: on the 55-language sample, Claude Sonnet 5.5 is 20% too low (0.7.0
+  reported 15%).
+
 ## [0.7.0] - 2026-11-07
 
 ### Changed

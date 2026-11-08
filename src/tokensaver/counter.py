@@ -94,9 +94,9 @@ def count_raw(text: str, tokenizer: str) -> int:
 def count_tokens(text: str, model: ModelInfo) -> TokenCount:
     """Count tokens for a model; non-exact models get a scaled estimate.
 
-    With `script_factors`, each part of the text written in a measured script (Arabic,
-    Thai, Gurmukhi, ...) is scaled by that script's factor and the rest by
-    `estimate_factor`. Text with none of those scripts is scaled exactly as before.
+    With `script_factors`, tokens of text written in a measured script (Arabic, Thai,
+    Gurmukhi, ...) are scaled by that script's factor and the rest by `estimate_factor`.
+    Text with none of those scripts is scaled exactly as before.
     """
     if model.exact:
         return TokenCount(model=model.name, tokens=count_raw(text, model.tokenizer), exact=True)
@@ -106,11 +106,35 @@ def count_tokens(text: str, model: ModelInfo) -> TokenCount:
     else:
         tokens = round(
             sum(
-                count_raw(part, model.tokenizer) * factors.get(script, model.estimate_factor)
-                for script, part in script_runs(text)
+                count * factors.get(script, model.estimate_factor)
+                for script, count in tokens_by_script(text, model.tokenizer).items()
             )
         )
     return TokenCount(model=model.name, tokens=tokens, exact=False)
+
+
+def tokens_by_script(text: str, tokenizer: str) -> dict[str, int]:
+    """Tokenize the whole text once and count its tokens per script (see script_runs).
+
+    The counts add up to count_raw(text): splitting the text first would add tokens at
+    every cut. A token belongs to the script of the first letter it covers, or to the
+    run it starts in if it covers no letter.
+    """
+    encoding = get_encoding(tokenizer)
+    tokens = encoding.encode_ordinary(text)
+    _, offsets = encoding.decode_with_offsets(tokens)
+    labels: list[str] = []
+    for script, part in script_runs(text):
+        labels.extend([script] * len(part))
+    letters = [_script_of(ch) is not None or ch.isalpha() for ch in text]
+    counts: dict[str, int] = {}
+    ends = [*offsets[1:], len(text)]
+    for start, end in zip(offsets, ends, strict=True):
+        start = min(start, len(text) - 1)
+        first = next((i for i in range(start, max(end, start + 1)) if letters[i]), start)
+        script = labels[first]
+        counts[script] = counts.get(script, 0) + 1
+    return counts
 
 
 # Writing systems with a measured factor in prices.json (`script_factors`). Everything

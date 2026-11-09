@@ -692,3 +692,89 @@ def test_optimize_invalid_tools(run, messy_file: Path, tmp_path: Path) -> None:
     args = ("optimize", str(messy_file), "--cache-hit-rate", "0.9", "--tools", str(bad))
     result = run(*args)
     assert result.exit_code == 2
+
+
+# --- task-cost ---------------------------------------------------------------
+
+EXAMPLES = Path(__file__).parent.parent / "examples" / "task-cost"
+
+
+def test_task_cost_one_log(run) -> None:
+    result = run("task-cost", str(EXAMPLES / "before.jsonl"))
+    assert result.exit_code == 0
+    assert "Cost per successful task" in result.output
+    assert "claude-sonnet-5-5" in result.output
+    assert "Change" not in result.output
+
+
+def test_task_cost_compare_flags_the_trap(run) -> None:
+    result = run("task-cost", str(EXAMPLES / "before.jsonl"), str(EXAMPLES / "after.jsonl"))
+    assert result.exit_code == 0
+    assert "Change" in result.output
+    assert "Cheaper per call" in result.output
+    assert "more expensive per successful task" in result.output
+    assert "refund" in result.output
+
+
+def test_task_cost_json(run) -> None:
+    result = run(
+        "task-cost", str(EXAMPLES / "before.jsonl"), str(EXAMPLES / "after.jsonl"), "--json"
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    before, after = data["logs"]
+    assert (before["tasks"], before["passed"], before["calls"]) == (8, 7, 9)
+    assert (after["passed"], after["calls"]) == (6, 14)
+    assert after["cost_per_call"] < before["cost_per_call"]
+    assert after["cost_per_successful_task"] > before["cost_per_successful_task"]
+    assert data["change"]["cost_per_successful_task"] == pytest.approx(
+        after["cost_per_successful_task"] - before["cost_per_successful_task"]
+    )
+    assert set(before["by_type"]) == {"refund", "order-status"}
+
+
+def test_task_cost_stdin(run) -> None:
+    text = (EXAMPLES / "before.jsonl").read_text(encoding="utf-8")
+    result = run("task-cost", "-", "--json", input=text)
+    assert result.exit_code == 0
+    assert json.loads(result.output)["logs"][0]["label"] == "stdin"
+
+
+def test_task_cost_model_override(run) -> None:
+    path = str(EXAMPLES / "before.jsonl")
+    result = run("task-cost", path, "-m", "gpt-4o", "--json")
+    assert json.loads(result.output)["logs"][0]["models"] == ["gpt-4o"]
+
+
+def test_task_cost_same_file_names_get_numbered(run, tmp_path: Path) -> None:
+    text = (EXAMPLES / "before.jsonl").read_text(encoding="utf-8")
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    (tmp_path / "a" / "log.jsonl").write_text(text, encoding="utf-8")
+    (tmp_path / "b" / "log.jsonl").write_text(text, encoding="utf-8")
+    args = ("task-cost", str(tmp_path / "a" / "log.jsonl"), str(tmp_path / "b" / "log.jsonl"))
+    labels = [log["label"] for log in json.loads(run(*args, "--json").output)["logs"]]
+    assert labels == ["log.jsonl (1)", "log.jsonl (2)"]
+
+
+def test_task_cost_errors(run, tmp_path: Path) -> None:
+    bad = tmp_path / "bad.jsonl"
+    bad.write_text('{"usage": {"input_tokens": 1}}\n', encoding="utf-8")
+    result = run("task-cost", str(bad))
+    assert result.exit_code == 2
+    assert "bad.jsonl: line 1" in result.output
+
+    assert run("task-cost", str(tmp_path / "missing.jsonl")).exit_code == 2
+    path = str(EXAMPLES / "before.jsonl")
+    assert run("task-cost", path, path, path).exit_code == 2
+    assert run("task-cost", "-", "-").exit_code == 2
+
+
+def test_task_cost_unknown_outcomes_are_noted(run, tmp_path: Path) -> None:
+    log = tmp_path / "log.jsonl"
+    usage = {"input_tokens": 10, "output_tokens": 5}
+    log.write_text(json.dumps({"task": "a", "model": "gpt-4o", "usage": usage}), encoding="utf-8")
+    result = run("task-cost", str(log))
+    assert result.exit_code == 0
+    assert 'no "passed" value' in result.output
+    assert "no passed tasks" in result.output

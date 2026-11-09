@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+from collections.abc import Callable
 
 from rich import box
 from rich.console import Console
@@ -17,6 +18,7 @@ from tokensaver.prefix import PrefixCheck
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
 from tokensaver.request import CacheEstimate, CacheSaving, Part, RequestBreakdown
 from tokensaver.scan import ScanResult
+from tokensaver.tasks import TaskSummary
 
 CALLS = 1_000  # costs are also shown per this many calls, where they become readable
 MAX_DIFF_LINES = 60
@@ -675,3 +677,152 @@ def render_prefix(console: Console, result: PrefixCheck, min_tokens: int) -> Non
     if not model.exact:
         console.print(Text(ESTIMATE_NOTE, style="yellow"))
     console.print(Text(PREFIX_NOTE, style="dim"))
+
+
+TASK_COST_NOTE = (
+    "Costs are the usage counts in your log times the prices below. Batch, priority, "
+    "long-context and regional prices, cache storage and taxes are not included, so "
+    "check your invoice for the exact bill. OpenAI and Gemini report no cache writes; "
+    "those are priced as normal input."
+)
+UNKNOWN_OUTCOME_NOTE = (
+    'Tasks with no "passed" value are left out of cost per successful task. '
+    "Add the outcome to the log to include them."
+)
+
+
+def _percent_change(before: float | None, after: float | None) -> Text:
+    if before is None or after is None:
+        return Text("-", style="dim")
+    if before == 0:
+        return Text("-" if after == 0 else "new", style="dim")
+    change = 100 * (after - before) / before
+    style = "green" if change < 0 else "red" if change > 0 else ""
+    return Text(f"{change:+.0f}%", style=style)
+
+
+def _rate(value: float | None) -> str:
+    return "-" if value is None else f"{value * 100:.0f}%"
+
+
+def _money(value: float | None) -> str:
+    return "-" if value is None else usd(value)
+
+
+def _task_cost_table(summaries: list[TaskSummary]) -> Table:
+    compare = len(summaries) == 2
+    out = Table(title="Cost per task, from billed usage", box=box.SIMPLE_HEAVY)
+    out.add_column("", no_wrap=True)
+    for summary in summaries:
+        out.add_column(Text(summary.label), justify="right", no_wrap=True)
+    if compare:
+        out.add_column("Change", justify="right", no_wrap=True)
+
+    def row(
+        label: str,
+        values: list[str],
+        metric: Callable[[TaskSummary], float | None] | None = None,
+        bold: bool = False,
+    ) -> None:
+        style = "bold" if bold else ""
+        cells = [Text(label, style=style), *(Text(v, style=style) for v in values)]
+        if compare:
+            cells.append(
+                _percent_change(metric(summaries[0]), metric(summaries[1])) if metric else Text("")
+            )
+        out.add_row(*cells)
+
+    row("Tasks", [f"{len(s.tasks):,}" for s in summaries])
+    row("Passed / failed / unknown", [f"{s.passed} / {s.failed} / {s.unknown}" for s in summaries])
+    row("Success rate", [_rate(s.success_rate) for s in summaries])
+    row("Calls", [f"{s.calls:,}" for s in summaries])
+    row(
+        "Calls per task", [f"{s.calls_per_task:.2f}" for s in summaries], lambda s: s.calls_per_task
+    )
+    row("Input read from cache", [_rate(s.cache_read_share) for s in summaries])
+    out.add_section()
+    row("Total cost", [usd(s.cost) for s in summaries])
+    row("Cost per call", [usd(s.cost_per_call) for s in summaries], lambda s: s.cost_per_call)
+    row("Cost per task", [usd(s.cost_per_task) for s in summaries], lambda s: s.cost_per_task)
+    row("Spent on failed tasks", [usd(s.cost_failed) for s in summaries])
+    out.add_section()
+    row(
+        "Cost per successful task",
+        [_money(s.cost_per_success) for s in summaries],
+        lambda s: s.cost_per_success,
+        bold=True,
+    )
+    return out
+
+
+def _task_type_table(summaries: list[TaskSummary]) -> Table | None:
+    types = sorted({name for s in summaries for name in s.by_type})
+    if not types:
+        return None
+    compare = len(summaries) == 2
+    out = Table(title="Cost per successful task, by type (passed/judged)", box=box.SIMPLE_HEAVY)
+    out.add_column("Type", no_wrap=True)
+    for summary in summaries:
+        out.add_column(Text(summary.label), justify="right", no_wrap=True)
+    if compare:
+        out.add_column("Change", justify="right", no_wrap=True)
+    for name in types:
+        groups = [s.by_type.get(name) for s in summaries]
+        cells: list[Text | str] = [Text(name)]
+        for group in groups:
+            if group is None:
+                cells.append("-")
+            else:
+                judged = group.passed + group.failed
+                cells.append(f"{_money(group.cost_per_success)} ({group.passed}/{judged})")
+        if compare:
+            before, after = (g.cost_per_success if g else None for g in groups)
+            cells.append(_percent_change(before, after))
+        out.add_row(*cells)
+    return out
+
+
+def task_cost_verdict(before: TaskSummary, after: TaskSummary) -> Text | None:
+    """One line on how cost per successful task changed; None if either has no successes."""
+    a, b = before.cost_per_success, after.cost_per_success
+    if a is None or b is None:
+        return None
+    if after.cost_per_call < before.cost_per_call and b > a:
+        return Text(
+            f"Cheaper per call ({usd(before.cost_per_call)} -> {usd(after.cost_per_call)}) "
+            f"but more expensive per successful task ({usd(a)} -> {usd(b)}): the saving is "
+            "lost to failures and extra calls.",
+            style="bold red",
+        )
+    if b < a:
+        return Text(
+            f"Cost per successful task went down: {usd(a)} -> {usd(b)}.", style="bold green"
+        )
+    if b > a:
+        return Text(f"Cost per successful task went up: {usd(a)} -> {usd(b)}.", style="bold red")
+    return Text(f"Cost per successful task is unchanged: {usd(a)}.", style="bold")
+
+
+def render_task_cost(console: Console, summaries: list[TaskSummary], table: PriceTable) -> None:
+    models = sorted({m for s in summaries for m in s.models})
+    console.print(Text.assemble(("tokensaver task-cost", "bold"), f"  {', '.join(models)}"))
+    console.print(_task_cost_table(summaries))
+    by_type = _task_type_table(summaries)
+    if by_type is not None:
+        console.print(by_type)
+    if len(summaries) == 2:
+        verdict = task_cost_verdict(*summaries)
+        if verdict is not None:
+            console.print(verdict)
+    if any(s.unknown for s in summaries):
+        console.print(Text(UNKNOWN_OUTCOME_NOTE, style="yellow"))
+    if any(s.passed == 0 for s in summaries):
+        console.print(Text("A log with no passed tasks has no cost per success.", style="yellow"))
+    console.print(Text(TASK_COST_NOTE, style="dim"))
+    console.print(
+        Text(
+            f"Prices: input, cache and output, standard tier, as of "
+            f"{table.last_updated.isoformat()} (pass --prices to use your own).",
+            style="dim",
+        )
+    )

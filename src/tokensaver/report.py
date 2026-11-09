@@ -14,6 +14,7 @@ from tokensaver.prefix import PrefixCheck
 from tokensaver.pricing import ModelInfo, PriceTable, input_cost
 from tokensaver.request import CacheEstimate, CacheSaving, Part, RequestBreakdown
 from tokensaver.scan import ScanResult
+from tokensaver.tasks import TaskSummary
 
 
 def dumps(data: dict) -> str:
@@ -242,3 +243,59 @@ def prefix_report(result: PrefixCheck, table: PriceTable, min_tokens: int) -> di
             for diff in result.differences
         ],
     }
+
+
+def _optional_dollars(amount: float | None) -> float | None:
+    return None if amount is None else _dollars(amount)
+
+
+def _task_summary(summary: TaskSummary, with_types: bool = True) -> dict:
+    usage = summary.usage
+    rate = summary.success_rate
+    report = {
+        "label": summary.label,
+        "models": summary.models,
+        "tasks": len(summary.tasks),
+        "passed": summary.passed,
+        "failed": summary.failed,
+        "unknown": summary.unknown,
+        "success_rate": round(rate, 4) if rate is not None else None,
+        "calls": summary.calls,
+        "calls_per_task": round(summary.calls_per_task, 4),
+        "usage": {
+            "input": usage.input,
+            "cache_read": usage.cache_read,
+            "cache_write": usage.cache_write,
+            "cache_write_1h": usage.cache_write_1h,
+            "output": usage.output,
+        },
+        "cache_read_share": round(summary.cache_read_share, 4),
+        "cost": _dollars(summary.cost),
+        "cost_per_call": _dollars(summary.cost_per_call),
+        "cost_per_task": _dollars(summary.cost_per_task),
+        "cost_failed": _dollars(summary.cost_failed),
+        "cost_per_successful_task": _optional_dollars(summary.cost_per_success),
+    }
+    if with_types:
+        report["by_type"] = {
+            name: _task_summary(group, with_types=False) for name, group in summary.by_type.items()
+        }
+    return report
+
+
+def task_cost_report(summaries: list[TaskSummary], table: PriceTable) -> dict:
+    """One entry per log; with two logs, `change` is the second minus the first."""
+    report: dict = {
+        "prices_last_updated": table.last_updated.isoformat(),
+        "logs": [_task_summary(s) for s in summaries],
+    }
+    if len(summaries) == 2:
+        first, second = summaries
+        before, after = first.cost_per_success, second.cost_per_success
+        report["change"] = {
+            "cost_per_call": _dollars(second.cost_per_call - first.cost_per_call),
+            "cost_per_successful_task": (
+                _dollars(after - before) if before is not None and after is not None else None
+            ),
+        }
+    return report

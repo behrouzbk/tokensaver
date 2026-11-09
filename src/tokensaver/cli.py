@@ -11,7 +11,7 @@ from rich.console import Console
 
 from tokensaver import __version__
 from tokensaver.counter import count_tokens
-from tokensaver.inputs import PromptInput, resolve_input
+from tokensaver.inputs import PromptInput, read_file, resolve_input
 from tokensaver.optimizer import RULE_NAMES, optimize, resolve_selection
 from tokensaver.output import (
     cheapest_first,
@@ -22,6 +22,7 @@ from tokensaver.output import (
     render_prefix,
     render_request,
     render_scan,
+    render_task_cost,
 )
 from tokensaver.prefix import RequestInputError, check, render_input
 from tokensaver.pricing import (
@@ -39,6 +40,7 @@ from tokensaver.report import (
     prefix_report,
     request_report,
     scan_report,
+    task_cost_report,
 )
 from tokensaver.request import (
     ToolsError,
@@ -48,6 +50,7 @@ from tokensaver.request import (
     measure_tools,
 )
 from tokensaver.scan import DEFAULT_PATTERNS, scan
+from tokensaver.tasks import TaskLogError, parse_log, summarize
 
 DEFAULT_MODEL = "gpt-4o"
 MIN_CACHEABLE_TOKENS = 1024  # OpenAI GPT-5.6+; earlier models and other providers vary
@@ -405,6 +408,66 @@ def cache_check_command(
         typer.echo(dumps(prefix_report(result, table, min_tokens)))
     else:
         render_prefix(_console(), result, min_tokens)
+
+
+def _read_log(value: str) -> tuple[str, str]:
+    """(text, label) for a log file path or '-' for stdin."""
+    if value == "-":
+        return sys.stdin.read(), "stdin"
+    path = Path(value)
+    if not path.is_file():
+        raise _fail(f"File not found: {value}")
+    try:
+        return read_file(path), path.name
+    except UnicodeDecodeError:
+        raise _fail(f"{value} is not UTF-8 text.") from None
+
+
+@app.command(name="task-cost")
+def task_cost_command(
+    logs: Annotated[
+        list[str],
+        typer.Argument(
+            help='A JSON Lines log of real API calls, one per line, each with a "task" ID, '
+            'the response (or its "usage") and "passed" for the task\'s outcome. '
+            "Pass a second log (for example after a prompt change) to compare. "
+            "A file path or '-' for stdin.",
+            metavar="LOG [LOG]",
+            show_default=False,
+        ),
+    ],
+    model: Annotated[
+        str | None,
+        typer.Option(
+            "--model",
+            "-m",
+            help="Price every call as this model, instead of the model named in the log.",
+        ),
+    ] = None,
+    prices: PricesOpt = None,
+    json_output: JsonOpt = False,
+) -> None:
+    """Cost per successful task: all spend, retries included, divided by tasks that passed."""
+    if len(logs) > 2:
+        raise _fail("Pass one log, or two to compare.")
+    if logs.count("-") > 1:
+        raise _fail("Only one input can be read from stdin ('-').")
+    table = _load_table(prices)
+    info = _get_model(table, model) if model is not None else None
+    read = [_read_log(value) for value in logs]
+    labels = [label for _, label in read]
+    if len(set(labels)) < len(labels):
+        labels = [f"{label} ({n})" for n, label in enumerate(labels, 1)]
+    summaries = []
+    for (text, _), label in zip(read, labels, strict=True):
+        try:
+            summaries.append(summarize(parse_log(text, table, info), label=label))
+        except TaskLogError as error:
+            raise _fail(f"{label}: {error}") from None
+    if json_output:
+        typer.echo(dumps(task_cost_report(summaries, table)))
+    else:
+        render_task_cost(_console(), summaries, table)
 
 
 @app.command()

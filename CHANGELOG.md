@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `tokensaver task-cost LOG [LOG]`: cost per successful task from a JSON Lines log of
+  real API calls (#32). Calls are grouped by task and priced from the usage the provider
+  returned (uncached input, cache reads and writes, output), and all spend, retries and
+  failures included, is divided by the tasks that passed. With two logs it shows the
+  change, and flags a prompt change that is cheaper per call but more expensive per
+  successful task. Reads Anthropic, OpenAI (Chat Completions and Responses) and Gemini
+  responses. `examples/task-cost/` has a made-up before/after pair that shows the effect.
 - `examples/behaviour-test/reader-language/`: a second behaviour suite for text written
   for someone other than the user. "Reply in the user's language" wrote 0 of 5 drafts in
   the right language when forwarding a German thread to an Italian teammate and when

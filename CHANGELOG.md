@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-09
+
 ### Added
 - `tokensaver task-cost LOG [LOG]`: cost per successful task from a JSON Lines log of
   real API calls (#32). Calls are grouped by task and priced from the usage the provider

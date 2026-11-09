@@ -12,7 +12,7 @@ You will:
 4. Check that two requests share the same start, so prompt caching can reuse it
    (`tokensaver cache-check`).
 
-The expected numbers are for tokensaver **0.8.0** on `gpt-4o` (exact counts), with prices
+The expected numbers are for tokensaver **0.9.0** on `gpt-4o` (exact counts), with prices
 as of 2026-11-07. Token counts stay the same on later versions; dollar amounts change
 when prices are updated.
 
@@ -61,7 +61,7 @@ base=https://raw.githubusercontent.com/behrouzbk/tokensaver/main/examples
 for f in messy_prompt.txt support_bot_prompt.txt tools.json request_1.json request_2.json; do curl -sLO "$base/$f"; done
 ```
 
-✅ `tokensaver version` prints `0.8.0` or newer, and the folder has the five files.
+✅ `tokensaver version` prints `0.9.0` or newer, and the folder has the five files.
 
 > **Tip:** download the files rather than pasting them into the terminal. Pasting long
 > multi-line text into the PowerShell console can silently drop characters. If you

@@ -1,0 +1,108 @@
+{
+  "case_id": "1-recipient-language",
+  "arm": "B",
+  "run": 1,
+  "reply": "Ho salvato la bozza della risposta a Klaus, in tedesco perché il thread è in tedesco. Dice che il tavolo arriverà venerdì 20 novembre invece di lunedì 16, con le scuse per il disagio. Non è stata inviata.\n\nKlaus aveva anche chiesto se la consegna sarebbe stata di mattina o di pomeriggio. Nella bozza non ho risposto, perché non ho un orario. Se me lo indichi, aggiorno il testo.",
+  "tool_calls": [
+    {
+      "name": "get_thread",
+      "input": {
+        "thread_id": "T-311"
+      }
+    },
+    {
+      "name": "find_team_member",
+      "input": {
+        "name": "Klaus"
+      }
+    },
+    {
+      "name": "draft_email",
+      "input": {
+        "to": "klaus.becker@example.de",
+        "subject": "Re: Lieferung Esstisch Eiche",
+        "thread_id": "T-311",
+        "body": "Guten Tag Herr Becker,\n\nleider muss ich Ihnen mitteilen, dass der Esstisch nicht wie geplant am Montag, 16. November, geliefert werden kann. Die Lieferung erfolgt stattdessen am Freitag, 20. November.\n\nIch entschuldige mich für die Unannehmlichkeiten.\n\nViele Grüße"
+      }
+    }
+  ],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Rispondi a Klaus nel thread T-311: digli che purtroppo il tavolo arriverà venerdì 20 novembre invece di lunedì 16."
+    },
+    {
+      "role": "tool",
+      "name": "get_thread",
+      "input": {
+        "thread_id": "T-311"
+      },
+      "result": "{\"thread_id\": \"T-311\", \"client\": {\"name\": \"Klaus Becker\", \"email\": \"klaus.becker@example.de\"}, \"subject\": \"Lieferung Esstisch Eiche\", \"messages\": [{\"from\": \"klaus.becker@example.de\", \"date\": \"2026-11-02\", \"text\": \"Guten Tag, ich wollte nachfragen, ob der Esstisch aus Eiche wie geplant am Montag, 16. November, geliefert wird. Wir bekommen am Wochenende danach Besuch. Viele Grüße, Klaus Becker\"}, {\"from\": \"owner@example.it\", \"date\": \"2026-11-03\", \"text\": \"Guten Tag Herr Becker, ja, der Tisch ist für Montag, 16. November, geplant. Viele Grüße\"}, {\"from\": \"klaus.becker@example.de\", \"date\": \"2026-11-07\", \"text\": \"Vielen Dank! Können Sie mir noch sagen, ob die Lieferung vormittags oder nachmittags kommt?\"}]}"
+    },
+    {
+      "role": "tool",
+      "name": "find_team_member",
+      "input": {
+        "name": "Klaus"
+      },
+      "result": "{\"error\": \"not found\"}"
+    },
+    {
+      "role": "assistant",
+      "text": "Klaus è il cliente; il thread è in tedesco."
+    },
+    {
+      "role": "tool",
+      "name": "draft_email",
+      "input": {
+        "to": "klaus.becker@example.de",
+        "subject": "Re: Lieferung Esstisch Eiche",
+        "thread_id": "T-311",
+        "body": "Guten Tag Herr Becker,\n\nleider muss ich Ihnen mitteilen, dass der Esstisch nicht wie geplant am Montag, 16. November, geliefert werden kann. Die Lieferung erfolgt stattdessen am Freitag, 20. November.\n\nIch entschuldige mich für die Unannehmlichkeiten.\n\nViele Grüße"
+      },
+      "result": "{\"draft_id\": \"D-104\", \"status\": \"saved, not sent\"}"
+    },
+    {
+      "role": "assistant",
+      "text": "Ho salvato la bozza della risposta a Klaus, in tedesco perché il thread è in tedesco. Dice che il tavolo arriverà venerdì 20 novembre invece di lunedì 16, con le scuse per il disagio. Non è stata inviata.\n\nKlaus aveva anche chiesto se la consegna sarebbe stata di mattina o di pomeriggio. Nella bozza non ho risposto, perché non ho un orario. Se me lo indichi, aggiorno il testo."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 4176,
+    "output": 562,
+    "judge_input": 1154,
+    "judge_output": 209
+  },
+  "grade": {
+    "outcome": "pass",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "draft_email called"
+      },
+      {
+        "ok": true,
+        "detail": "draft_email.to matches: ['klaus.becker@example.de']"
+      }
+    ],
+    "judge": [
+      {
+        "question": "Is the body of the draft_email call written in German?",
+        "answer": true,
+        "reason": "The body uses German phrasing such as 'Guten Tag', 'leider muss ich Ihnen mitteilen', and 'Viele Grüße', so it is written in German."
+      },
+      {
+        "question": "Does the draft tell Klaus the table will arrive on Friday 20 November instead of Monday 16 November?",
+        "answer": true,
+        "reason": "The body states that the table cannot be delivered Monday 16 November and that delivery instead takes place Friday 20 November."
+      },
+      {
+        "question": "Is the assistant's final reply to the owner written in Italian?",
+        "answer": true,
+        "reason": "The final reply is in Italian, for example 'Ho salvato la bozza della risposta a Klaus' and 'Se me lo indichi, aggiorno il testo.'"
+      }
+    ]
+  }
+}

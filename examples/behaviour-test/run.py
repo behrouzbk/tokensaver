@@ -6,6 +6,7 @@ with the same tools and model, several times each, and reports pass rates per ca
     pip install anthropic
     python run.py --dry-run          # no API calls: checks cases, tools and graders
     python run.py                    # the real run (calls the Anthropic API)
+    python run.py --suite reader-language   # another suite: its own cases.json, prompts, tools
 
 This script calls a model API, so it lives outside the tokensaver package: tokensaver
 itself never makes network calls. Credentials come from ANTHROPIC_API_KEY or an
@@ -26,7 +27,6 @@ from pathlib import Path
 HERE = Path(__file__).parent
 PROMPTS = {"A": HERE / "prompt_original.txt", "B": HERE / "prompt_cleaned.txt"}
 TOOLS_FILE = HERE.parent / "tools.json"
-CASES_FILE = HERE / "cases.json"
 
 DEFAULT_MODEL = "claude-sonnet-5-5"
 DEFAULT_JUDGE = "claude-haiku-5-5"
@@ -69,6 +69,56 @@ def fake_tool(name: str, args: dict, orders: dict) -> str:
     return json.dumps({"error": f"unknown tool {name}"})
 
 
+def fixture_tool(name: str, args: dict, fixtures: dict) -> str:
+    """Tool results from a suite's 'fixtures': a fixed 'result', or 'results' keyed by
+    one argument ('arg'). Keys match case-insensitively, and a key contained in the
+    argument also matches, so "Giulia Conti" finds "giulia"."""
+    spec = fixtures.get(name)
+    if spec is None:
+        return json.dumps({"error": f"unknown tool {name}"})
+    if "result" in spec:
+        return json.dumps(spec["result"], ensure_ascii=False)
+    value = str(args.get(spec["arg"], "")).strip().lower()
+    for key, result in spec["results"].items():
+        if key.lower() == value or (value and key.lower() in value):
+            return json.dumps(result, ensure_ascii=False)
+    return json.dumps({"error": "not found"})
+
+
+@dataclass
+class Suite:
+    """Everything that differs between suites. The default is the support-bot suite."""
+
+    dir: Path
+    spec: dict
+    prompts: dict[str, Path]
+    tools_file: Path
+    arms: str
+    speaker: str
+    judge_system: str
+
+    def tool_result(self, name: str, args: dict) -> str:
+        if "fixtures" in self.spec:
+            return fixture_tool(name, args, self.spec["fixtures"])
+        return fake_tool(name, args, self.spec["orders"])
+
+
+def load_suite(path: Path) -> Suite:
+    spec = json.loads((path / "cases.json").read_text(encoding="utf-8"))
+    prompts = PROMPTS
+    if "prompts" in spec:
+        prompts = {arm: path / name for arm, name in spec["prompts"].items()}
+    return Suite(
+        dir=path,
+        spec=spec,
+        prompts=prompts,
+        tools_file=path / spec["tools"] if "tools" in spec else TOOLS_FILE,
+        arms=spec.get("arms", "A = original prompt (431 tokens), B = cleaned prompt (310 tokens)."),
+        speaker=spec.get("speaker", "Customer"),
+        judge_system=spec.get("judge_system", JUDGE_SYSTEM),
+    )
+
+
 # --- one conversation ----------------------------------------------------------
 
 
@@ -98,7 +148,7 @@ def _add_usage(conv: Conversation, usage) -> None:
     conv.usage["output"] += usage.output_tokens
 
 
-def run_conversation(client, model, system, tools, case, orders, arm, run) -> Conversation:
+def run_conversation(client, model, system, tools, case, tool_result, arm, run) -> Conversation:
     conv = Conversation(case_id=case["id"], arm=arm, run=run)
     messages: list = []
     try:
@@ -128,7 +178,7 @@ def run_conversation(client, model, system, tools, case, orders, arm, run) -> Co
                     break
                 results = []
                 for call in calls:
-                    result = fake_tool(call.name, call.input, orders)
+                    result = tool_result(call.name, call.input)
                     conv.tool_calls.append({"name": call.name, "input": call.input})
                     conv.transcript.append(
                         {"role": "tool", "name": call.name, "input": call.input, "result": result}
@@ -193,6 +243,11 @@ def run_check(check: dict, conv: Conversation) -> tuple[bool, str]:
     if kind == "max_sentences":
         n = _sentences(reply)
         return n <= check["max"], f"{n} sentences (max {check['max']})"
+    if kind == "tool_arg":
+        tool, arg = check["tool"], check["arg"]
+        values = [str(c["input"].get(arg, "")) for c in conv.tool_calls if c["name"] == tool]
+        ok = any(re.search(check["pattern"], v) for v in values)
+        return ok, f"{tool}.{arg} {'matches' if ok else 'does not match'}: {values}"
     raise ValueError(f"Unknown check type: {kind}")
 
 
@@ -205,15 +260,18 @@ JUDGE_SYSTEM = (
 )
 
 
-def judge(client, model, case: dict, conv: Conversation) -> list[dict]:
+def judge(
+    client, model, case: dict, conv: Conversation, system=JUDGE_SYSTEM, speaker="Customer"
+) -> list[dict]:
     questions = case["judge"]
     if not questions:
         return []
-    lines = [f"Customer: {t['text']}" if t["role"] == "user" else None for t in conv.transcript]
+    lines = [f"{speaker}: {t['text']}" if t["role"] == "user" else None for t in conv.transcript]
     shown = "\n".join(line for line in lines if line)
-    tools = "; ".join(f"{c['name']}({json.dumps(c['input'])})" for c in conv.tool_calls) or "none"
+    calls = [f"{c['name']}({json.dumps(c['input'], ensure_ascii=False)})" for c in conv.tool_calls]
+    tools = "; ".join(calls) or "none"
     prompt = (
-        f"Customer messages:\n{shown}\n\nTools the bot called: {tools}\n\n"
+        f"{speaker} messages:\n{shown}\n\nTools the bot called: {tools}\n\n"
         f"Bot's final reply:\n<reply>\n{conv.reply}\n</reply>\n\nQuestions:\n"
         + "\n".join(f"{i + 1}. {q}" for i, q in enumerate(questions))
     )
@@ -234,7 +292,7 @@ def judge(client, model, case: dict, conv: Conversation) -> list[dict]:
     response = client.messages.create(
         model=model,
         max_tokens=2000,
-        system=JUDGE_SYSTEM,
+        system=system,
         output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
         messages=[{"role": "user", "content": prompt}],
     )
@@ -255,14 +313,14 @@ def judge(client, model, case: dict, conv: Conversation) -> list[dict]:
 # --- grading and report ---------------------------------------------------------------
 
 
-def grade(client, judge_model, case, conv) -> dict:
+def grade(client, judge_model, case, conv, suite: Suite) -> dict:
     if conv.error:
         return {"outcome": "error", "detail": conv.error}
     if conv.stop_reason == "refusal":
         return {"outcome": "refusal", "detail": "the model declined"}
     checks = [dict(zip(("ok", "detail"), run_check(c, conv), strict=True)) for c in case["checks"]]
     try:
-        verdicts = judge(client, judge_model, case, conv)
+        verdicts = judge(client, judge_model, case, conv, suite.judge_system, suite.speaker)
     except Exception as error:
         return {"outcome": "error", "detail": f"judge: {error}", "checks": checks}
     passed = all(c["ok"] for c in checks) and all(v["answer"] for v in verdicts)
@@ -274,17 +332,17 @@ def cost(model: str, tokens_in: int, tokens_out: int) -> float:
     return (tokens_in * price_in + tokens_out * price_out) / 1_000_000
 
 
-def summarize(cases, results, runs, model, judge_model) -> str:
+def summarize(cases, results, runs, model, judge_model, arms) -> str:
     lines = [
         "# Behaviour test results",
         "",
         f"Model: `{model}` (effort low). Judge: `{judge_model}`. {runs} runs per case and prompt.",
-        "A = original prompt (431 tokens), B = cleaned prompt (310 tokens).",
+        arms,
         "",
         "| Case | A passes | B passes | Note |",
         "|---|---:|---:|---|",
     ]
-    drops = []
+    drops, gains, failed = [], [], 0
     for case in cases:
         counts = {}
         for arm in ("A", "B"):
@@ -300,15 +358,23 @@ def summarize(cases, results, runs, model, judge_model) -> str:
             drops.append(case["id"])
         elif counts["A"] < counts["B"] - 1:
             note = "B better"
+            gains.append(case["id"])
         extra = counts["A_other"] + counts["B_other"]
+        failed += len(extra)
         if extra:
             note = (note + " " if note else "") + f"({len(extra)} error/refusal)"
         lines.append(f"| {case['title']} | {counts['A']}/{runs} | {counts['B']}/{runs} | {note} |")
-    verdict = (
-        "The cleaned prompt kept its behaviour: no case dropped by more than one run."
-        if not drops
-        else f"The cleaned prompt did worse on: {', '.join(drops)}. See the transcripts."
-    )
+    if failed:
+        verdict = (
+            f"{failed} conversations ended in an error or refusal, so A and B are not "
+            "comparable. See the transcripts."
+        )
+    elif drops:
+        verdict = f"B did worse than A on: {', '.join(drops)}. See the transcripts."
+    elif gains:
+        verdict = f"B did better than A on: {', '.join(gains)}, and no case dropped."
+    else:
+        verdict = "B kept A's behaviour: no case dropped by more than one run."
     tokens = {
         k: sum(r["usage"].get(k, 0) for r in results)
         for k in ("input", "output", "judge_input", "judge_output")
@@ -330,9 +396,9 @@ def summarize(cases, results, runs, model, judge_model) -> str:
 # --- dry run ---------------------------------------------------------------------------
 
 
-def dry_run(cases, tools, orders) -> None:
+def dry_run(cases, tools, suite: Suite) -> None:
     """Validate the setup without calling any API."""
-    for name, path in PROMPTS.items():
+    for name, path in suite.prompts.items():
         print(f"Prompt {name}: {path.name}, {len(path.read_text(encoding='utf-8'))} characters")
     print(f"Tools: {[t['name'] for t in tools]}")
     print(f"Cases: {len(cases)}")
@@ -348,14 +414,33 @@ def dry_run(cases, tools, orders) -> None:
     }
     for case in cases:
         for check in case["checks"]:
-            fake.reply = samples.get(case["id"], "A short reply.")
-            fake.tool_calls = (
-                [{"name": "get_order_status", "input": {"order_id": "A-10293"}}]
-                if case["id"].startswith("2-")
-                else []
-            )
+            if "sample" in case:  # a suite can give its own sample reply and tool calls
+                fake.reply, fake.tool_calls = case["sample"]["reply"], case["sample"]["tool_calls"]
+            else:
+                fake.reply = samples.get(case["id"], "A short reply.")
+                fake.tool_calls = (
+                    [{"name": "get_order_status", "input": {"order_id": "A-10293"}}]
+                    if case["id"].startswith("2-")
+                    else []
+                )
             ok, detail = run_check(check, fake)
             print(f"  {case['id']:28} {check['type']:14} {'ok  ' if ok else 'FAIL'} {detail}")
+    if "fixtures" in suite.spec:
+        fixtures = suite.spec["fixtures"]
+        assert set(fixtures) == {t["name"] for t in tools}, "every tool needs a fixture"
+        for name, spec in fixtures.items():
+            for key in spec.get("results", {}):
+                assert "not found" not in fixture_tool(name, {spec["arg"]: key.upper()}, fixtures)
+        assert "Giulia" in fixture_tool("find_team_member", {"name": "Giulia Conti"}, fixtures)
+        assert "not found" in fixture_tool("get_thread", {"thread_id": "T-999"}, fixtures)
+        wrong = [{"name": "draft_email", "input": {"to": "klaus@x"}}]
+        assert not run_check(
+            {"type": "tool_arg", "tool": "draft_email", "arg": "to", "pattern": "giulia@"},
+            Conversation("x", "A", 0, tool_calls=wrong),
+        )[0]
+        print("Graders and fixtures behave as expected. No API calls were made.")
+        return
+    orders = suite.spec["orders"]
     assert not run_check({"type": "no_dates"}, Conversation("x", "A", 0, reply="by 2026-12-01"))[0]
     assert not run_check(
         {"type": "not_contains", "pattern": "4111[ -]?1111[ -]?1111[ -]?1111"},
@@ -376,7 +461,14 @@ def main() -> int:
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--only", help="Run only cases whose id starts with this.")
-    parser.add_argument("--out", type=Path, default=HERE / "results")
+    parser.add_argument(
+        "--suite",
+        type=Path,
+        default=HERE,
+        help="Folder with the suite's cases.json (default: the support-bot suite here). "
+        "A bare name like reader-language is looked up next to this script.",
+    )
+    parser.add_argument("--out", type=Path, help="Results folder (default: <suite>/results).")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--rejudge",
@@ -386,13 +478,17 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    spec = json.loads(CASES_FILE.read_text(encoding="utf-8"))
+    if not args.suite.is_dir() and (HERE / args.suite).is_dir():
+        args.suite = HERE / args.suite
+    suite = load_suite(args.suite)
+    args.out = args.out or suite.dir / "results"
+    spec = suite.spec
     cases = [c for c in spec["cases"] if not args.only or c["id"].startswith(args.only)]
-    tools = anthropic_tools(json.loads(TOOLS_FILE.read_text(encoding="utf-8")))
-    prompts = {arm: path.read_text(encoding="utf-8") for arm, path in PROMPTS.items()}
+    tools = anthropic_tools(json.loads(suite.tools_file.read_text(encoding="utf-8")))
+    prompts = {arm: path.read_text(encoding="utf-8") for arm, path in suite.prompts.items()}
 
     if args.dry_run:
-        dry_run(cases, tools, spec["orders"])
+        dry_run(cases, tools, suite)
         return 0
 
     import anthropic  # only needed for the real run
@@ -411,7 +507,7 @@ def main() -> int:
             fields = {k: v for k, v in saved_result.items() if k != "grade"}
             fields["usage"] = {k: fields["usage"].get(k, 0) for k in ("input", "output")}
             conv = Conversation(**fields)
-            graded = grade(client, args.judge_model, by_id[conv.case_id], conv)
+            graded = grade(client, args.judge_model, by_id[conv.case_id], conv, suite)
             result = {**asdict(conv), "grade": graded}
             print(f"  {conv.case_id:28} {conv.arm} run {conv.run}: {graded['outcome']}", flush=True)
             return result
@@ -426,9 +522,9 @@ def main() -> int:
         def work(job):
             case, arm, run = job
             conv = run_conversation(
-                client, args.model, prompts[arm], tools, case, spec["orders"], arm, run
+                client, args.model, prompts[arm], tools, case, suite.tool_result, arm, run
             )
-            graded = grade(client, args.judge_model, case, conv)  # adds the judge's usage
+            graded = grade(client, args.judge_model, case, conv, suite)  # adds the judge's usage
             result = {**asdict(conv), "grade": graded}
             print(f"  {case['id']:28} {arm} run {run}: {graded['outcome']}", flush=True)
             return result
@@ -444,7 +540,7 @@ def main() -> int:
         (transcripts / name).write_text(
             json.dumps(r, indent=2, ensure_ascii=False), encoding="utf-8"
         )
-    summary = summarize(cases, results, args.runs, args.model, args.judge_model)
+    summary = summarize(cases, results, args.runs, args.model, args.judge_model, suite.arms)
     (args.out / "summary.md").write_text(summary, encoding="utf-8")
     print()
     print(summary)

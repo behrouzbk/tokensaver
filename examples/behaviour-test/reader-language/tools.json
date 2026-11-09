@@ -1,0 +1,47 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "get_thread",
+      "description": "Read a client email thread by its id. Returns the messages in order.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "thread_id": {"type": "string", "description": "The thread id, e.g. T-311."}
+        },
+        "required": ["thread_id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "find_team_member",
+      "description": "Look up a person in the team directory by name. Returns their email and spoken_languages.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"}
+        },
+        "required": ["name"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "draft_email",
+      "description": "Save an email as a draft for the owner to review. Nothing is sent.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {"type": "string", "description": "The recipient's email address."},
+          "subject": {"type": "string"},
+          "body": {"type": "string"},
+          "thread_id": {"type": "string", "description": "The thread this answers, if any."}
+        },
+        "required": ["to", "subject", "body"]
+      }
+    }
+  }
+]

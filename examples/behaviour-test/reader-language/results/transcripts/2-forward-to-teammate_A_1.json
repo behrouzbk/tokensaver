@@ -1,0 +1,104 @@
+{
+  "case_id": "2-forward-to-teammate",
+  "arm": "A",
+  "run": 1,
+  "reply": "I saved a draft to Giulia (D-104). It isn't sent. It summarizes the thread and asks her to call Klaus tomorrow morning about the delivery time.\n\n- **Delivery slot:** The thread doesn't say whether delivery on Monday, 16 Nov is in the morning or afternoon. I didn't make up a slot. You may want to settle it before she calls.\n- **Language:** Klaus writes in German, and Giulia's profile lists only Italian and English. Check that she's comfortable making the call.",
+  "tool_calls": [
+    {
+      "name": "get_thread",
+      "input": {
+        "thread_id": "T-311"
+      }
+    },
+    {
+      "name": "find_team_member",
+      "input": {
+        "name": "Giulia"
+      }
+    },
+    {
+      "name": "draft_email",
+      "input": {
+        "to": "giulia@example.it",
+        "subject": "Please call Klaus Becker tomorrow morning – delivery time (T-311)",
+        "body": "Hi Giulia,\n\nCould you call Klaus Becker (klaus.becker@example.de) tomorrow morning about the delivery time for his oak dining table?\n\nGist of the thread:\n- The table is planned for delivery on Monday, 16 November. We confirmed this to him on 3 Nov.\n- He has guests the weekend after, so the date matters to him.\n- On 7 Nov he asked whether the delivery will come in the morning or the afternoon. He hasn't had an answer yet.\n\nPlease let him know the time slot once it's confirmed.\n\nThanks!",
+        "thread_id": "T-311"
+      }
+    }
+  ],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Forward the gist of thread T-311 to Giulia and ask her to call Klaus tomorrow morning about the delivery time."
+    },
+    {
+      "role": "tool",
+      "name": "get_thread",
+      "input": {
+        "thread_id": "T-311"
+      },
+      "result": "{\"thread_id\": \"T-311\", \"client\": {\"name\": \"Klaus Becker\", \"email\": \"klaus.becker@example.de\"}, \"subject\": \"Lieferung Esstisch Eiche\", \"messages\": [{\"from\": \"klaus.becker@example.de\", \"date\": \"2026-11-02\", \"text\": \"Guten Tag, ich wollte nachfragen, ob der Esstisch aus Eiche wie geplant am Montag, 16. November, geliefert wird. Wir bekommen am Wochenende danach Besuch. Viele Grüße, Klaus Becker\"}, {\"from\": \"owner@example.it\", \"date\": \"2026-11-03\", \"text\": \"Guten Tag Herr Becker, ja, der Tisch ist für Montag, 16. November, geplant. Viele Grüße\"}, {\"from\": \"klaus.becker@example.de\", \"date\": \"2026-11-07\", \"text\": \"Vielen Dank! Können Sie mir noch sagen, ob die Lieferung vormittags oder nachmittags kommt?\"}]}"
+    },
+    {
+      "role": "tool",
+      "name": "find_team_member",
+      "input": {
+        "name": "Giulia"
+      },
+      "result": "{\"name\": \"Giulia Conti\", \"email\": \"giulia@example.it\", \"role\": \"client service\", \"spoken_languages\": [\"Italian\", \"English\"]}"
+    },
+    {
+      "role": "tool",
+      "name": "draft_email",
+      "input": {
+        "to": "giulia@example.it",
+        "subject": "Please call Klaus Becker tomorrow morning – delivery time (T-311)",
+        "body": "Hi Giulia,\n\nCould you call Klaus Becker (klaus.becker@example.de) tomorrow morning about the delivery time for his oak dining table?\n\nGist of the thread:\n- The table is planned for delivery on Monday, 16 November. We confirmed this to him on 3 Nov.\n- He has guests the weekend after, so the date matters to him.\n- On 7 Nov he asked whether the delivery will come in the morning or the afternoon. He hasn't had an answer yet.\n\nPlease let him know the time slot once it's confirmed.\n\nThanks!",
+        "thread_id": "T-311"
+      },
+      "result": "{\"draft_id\": \"D-104\", \"status\": \"saved, not sent\"}"
+    },
+    {
+      "role": "assistant",
+      "text": "I saved a draft to Giulia (D-104). It isn't sent. It summarizes the thread and asks her to call Klaus tomorrow morning about the delivery time.\n\n- **Delivery slot:** The thread doesn't say whether delivery on Monday, 16 Nov is in the morning or afternoon. I didn't make up a slot. You may want to settle it before she calls.\n- **Language:** Klaus writes in German, and Giulia's profile lists only Italian and English. Check that she's comfortable making the call."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 4134,
+    "output": 688,
+    "judge_input": 1210,
+    "judge_output": 123
+  },
+  "grade": {
+    "outcome": "fail",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "draft_email called"
+      },
+      {
+        "ok": true,
+        "detail": "draft_email.to matches: ['giulia@example.it']"
+      }
+    ],
+    "judge": [
+      {
+        "question": "Is the body of the draft_email call written in Italian (not German and not English)?",
+        "answer": false,
+        "reason": "The draft body is written in English, not Italian."
+      },
+      {
+        "question": "Does the draft ask Giulia to call Klaus tomorrow morning?",
+        "answer": true,
+        "reason": "The body asks Giulia: 'Could you call Klaus Becker ... tomorrow morning about the delivery time'."
+      },
+      {
+        "question": "Is the assistant's final reply to the owner written in English?",
+        "answer": true,
+        "reason": "The final reply to the owner is written in English."
+      }
+    ]
+  }
+}

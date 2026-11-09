@@ -1,0 +1,104 @@
+{
+  "case_id": "2-forward-to-teammate",
+  "arm": "B",
+  "run": 2,
+  "reply": "I saved a draft to Giulia in Italian. It summarises the thread and asks her to call Klaus tomorrow morning.\n\nThe draft says delivery is planned for Monday, 16 November, and that Klaus wants to know whether it will come in the morning or afternoon. It also mentions that he has guests the following weekend. I didn't give a time slot, because the thread doesn't have one.",
+  "tool_calls": [
+    {
+      "name": "get_thread",
+      "input": {
+        "thread_id": "T-311"
+      }
+    },
+    {
+      "name": "find_team_member",
+      "input": {
+        "name": "Giulia"
+      }
+    },
+    {
+      "name": "draft_email",
+      "input": {
+        "to": "giulia@example.it",
+        "subject": "Klaus Becker – tempi di consegna tavolo in rovere",
+        "body": "Ciao Giulia,\n\npuoi chiamare domani mattina Klaus Becker (klaus.becker@example.de) per la consegna del tavolo da pranzo in rovere?\n\nIn breve: la consegna è prevista per lunedì 16 novembre (già confermata a lui). Ora ci ha chiesto se la consegna arriva di mattina o di pomeriggio. Ha ospiti il weekend successivo, quindi per lui è importante.\n\nPer favore chiamalo e chiariscigli la fascia oraria.\n\nGrazie!",
+        "thread_id": "T-311"
+      }
+    }
+  ],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Forward the gist of thread T-311 to Giulia and ask her to call Klaus tomorrow morning about the delivery time."
+    },
+    {
+      "role": "tool",
+      "name": "get_thread",
+      "input": {
+        "thread_id": "T-311"
+      },
+      "result": "{\"thread_id\": \"T-311\", \"client\": {\"name\": \"Klaus Becker\", \"email\": \"klaus.becker@example.de\"}, \"subject\": \"Lieferung Esstisch Eiche\", \"messages\": [{\"from\": \"klaus.becker@example.de\", \"date\": \"2026-11-02\", \"text\": \"Guten Tag, ich wollte nachfragen, ob der Esstisch aus Eiche wie geplant am Montag, 16. November, geliefert wird. Wir bekommen am Wochenende danach Besuch. Viele Grüße, Klaus Becker\"}, {\"from\": \"owner@example.it\", \"date\": \"2026-11-03\", \"text\": \"Guten Tag Herr Becker, ja, der Tisch ist für Montag, 16. November, geplant. Viele Grüße\"}, {\"from\": \"klaus.becker@example.de\", \"date\": \"2026-11-07\", \"text\": \"Vielen Dank! Können Sie mir noch sagen, ob die Lieferung vormittags oder nachmittags kommt?\"}]}"
+    },
+    {
+      "role": "tool",
+      "name": "find_team_member",
+      "input": {
+        "name": "Giulia"
+      },
+      "result": "{\"name\": \"Giulia Conti\", \"email\": \"giulia@example.it\", \"role\": \"client service\", \"spoken_languages\": [\"Italian\", \"English\"]}"
+    },
+    {
+      "role": "tool",
+      "name": "draft_email",
+      "input": {
+        "to": "giulia@example.it",
+        "subject": "Klaus Becker – tempi di consegna tavolo in rovere",
+        "body": "Ciao Giulia,\n\npuoi chiamare domani mattina Klaus Becker (klaus.becker@example.de) per la consegna del tavolo da pranzo in rovere?\n\nIn breve: la consegna è prevista per lunedì 16 novembre (già confermata a lui). Ora ci ha chiesto se la consegna arriva di mattina o di pomeriggio. Ha ospiti il weekend successivo, quindi per lui è importante.\n\nPer favore chiamalo e chiariscigli la fascia oraria.\n\nGrazie!",
+        "thread_id": "T-311"
+      },
+      "result": "{\"draft_id\": \"D-104\", \"status\": \"saved, not sent\"}"
+    },
+    {
+      "role": "assistant",
+      "text": "I saved a draft to Giulia in Italian. It summarises the thread and asks her to call Klaus tomorrow morning.\n\nThe draft says delivery is planned for Monday, 16 November, and that Klaus wants to know whether it will come in the morning or afternoon. It also mentions that he has guests the following weekend. I didn't give a time slot, because the thread doesn't have one."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 4258,
+    "output": 554,
+    "judge_input": 1156,
+    "judge_output": 210
+  },
+  "grade": {
+    "outcome": "pass",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "draft_email called"
+      },
+      {
+        "ok": true,
+        "detail": "draft_email.to matches: ['giulia@example.it']"
+      }
+    ],
+    "judge": [
+      {
+        "question": "Is the body of the draft_email call written in Italian (not German and not English)?",
+        "answer": true,
+        "reason": "The draft body uses Italian throughout (e.g., 'Ciao Giulia', 'puoi chiamare domani mattina', 'Grazie'), with no German or English sentences."
+      },
+      {
+        "question": "Does the draft ask Giulia to call Klaus tomorrow morning?",
+        "answer": true,
+        "reason": "The body says 'puoi chiamare domani mattina Klaus Becker', which asks Giulia to call Klaus tomorrow morning."
+      },
+      {
+        "question": "Is the assistant's final reply to the owner written in English?",
+        "answer": true,
+        "reason": "The final reply to the owner is written in English, such as 'I saved a draft to Giulia in Italian' and 'I didn't give a time slot'."
+      }
+    ]
+  }
+}

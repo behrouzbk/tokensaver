@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `examples/behaviour-test/reader-language/`: a second behaviour suite for text written
+  for someone other than the user. "Reply in the user's language" wrote 0 of 5 drafts in
+  the right language when forwarding a German thread to an Italian teammate and when
+  writing to a teammate whose first language is English; "write in the reader's
+  language" got 4 of 5 (the miss is a judge error) and 5 of 5. Both passed direct client
+  replies and the owner-summary control. `run.py` takes `--suite` to run it.
+
 ## [0.8.0] - 2026-11-07
 
 ### Changed

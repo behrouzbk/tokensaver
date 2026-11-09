@@ -72,5 +72,6 @@ JSON file per conversation, with every message, tool call and grade).
 ## What this does not test
 
 - Prompts that say "reply in the user's language". This prompt always answers in
-  English, so writing to someone in another language is out of scope here.
+  English, so writing to someone in another language is tested in a separate suite,
+  [`reader-language/`](reader-language/) (`python run.py --suite reader-language`).
 - Other models. Pass `--model` to try one; the settings assume a current Claude model.

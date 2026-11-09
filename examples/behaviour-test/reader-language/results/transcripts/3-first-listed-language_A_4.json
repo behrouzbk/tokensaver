@@ -1,0 +1,88 @@
+{
+  "case_id": "3-first-listed-language",
+  "arm": "A",
+  "run": 4,
+  "reply": "Der Entwurf an Tom (tom@example.it) ist gespeichert und noch nicht gesendet. Darin steht, dass die Besprechung morgen auf 15 Uhr verschoben ist. Ich habe auf Deutsch geschrieben, weil Tom Deutsch spricht.",
+  "tool_calls": [
+    {
+      "name": "find_team_member",
+      "input": {
+        "name": "Tom"
+      }
+    },
+    {
+      "name": "draft_email",
+      "input": {
+        "to": "tom@example.it",
+        "subject": "Besprechung morgen verschoben auf 15 Uhr",
+        "body": "Hallo Tom,\n\ndie Besprechung morgen ist auf 15 Uhr verschoben.\n\nViele Grüße"
+      }
+    }
+  ],
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Schreib Tom aus dem Team, dass die Besprechung morgen auf 15 Uhr verschoben ist."
+    },
+    {
+      "role": "tool",
+      "name": "find_team_member",
+      "input": {
+        "name": "Tom"
+      },
+      "result": "{\"name\": \"Tom Hayes\", \"email\": \"tom@example.it\", \"role\": \"workshop\", \"spoken_languages\": [\"English\", \"German\"]}"
+    },
+    {
+      "role": "tool",
+      "name": "draft_email",
+      "input": {
+        "to": "tom@example.it",
+        "subject": "Besprechung morgen verschoben auf 15 Uhr",
+        "body": "Hallo Tom,\n\ndie Besprechung morgen ist auf 15 Uhr verschoben.\n\nViele Grüße"
+      },
+      "result": "{\"draft_id\": \"D-104\", \"status\": \"saved, not sent\"}"
+    },
+    {
+      "role": "assistant",
+      "text": "Der Entwurf an Tom (tom@example.it) ist gespeichert und noch nicht gesendet. Darin steht, dass die Besprechung morgen auf 15 Uhr verschoben ist. Ich habe auf Deutsch geschrieben, weil Tom Deutsch spricht."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "error": "",
+  "usage": {
+    "input": 3004,
+    "output": 349,
+    "judge_input": 953,
+    "judge_output": 208
+  },
+  "grade": {
+    "outcome": "fail",
+    "checks": [
+      {
+        "ok": true,
+        "detail": "draft_email called"
+      },
+      {
+        "ok": true,
+        "detail": "draft_email.to matches: ['tom@example.it']"
+      }
+    ],
+    "judge": [
+      {
+        "question": "Is the body of the draft_email call written in English (not German)?",
+        "answer": false,
+        "reason": "The draft body \"Hallo Tom, die Besprechung morgen ist auf 15 Uhr verschoben. Viele Grüße\" is German, not English."
+      },
+      {
+        "question": "Does the draft say tomorrow's meeting is moved to 3 pm (15:00)?",
+        "answer": true,
+        "reason": "The draft states \"die Besprechung morgen ist auf 15 Uhr verschoben,\" which means tomorrow's meeting is moved to 15:00."
+      },
+      {
+        "question": "Is the assistant's final reply to the owner written in German?",
+        "answer": true,
+        "reason": "The final reply is written in German, e.g. \"Der Entwurf an Tom ist gespeichert und noch nicht gesendet.\""
+      }
+    ]
+  }
+}

@@ -160,6 +160,9 @@ tokensaver request --system system.md --tools tools.json --user "Where is my ord
 # 7. Do my requests start with the same bytes, so prompt caching can reuse them?
 tokensaver cache-check request1.json request2.json
 
+# 8. Did a prompt change make each successful task cheaper, retries and failures included?
+tokensaver task-cost before.jsonl after.jsonl
+
 # Pipe text in with "-", list models and prices
 cat prompt.txt | tokensaver count -        # PowerShell: Get-Content prompt.txt | tokensaver count -
 tokensaver models
@@ -366,6 +369,43 @@ end of a message), so the part actually cached can be shorter. See your provider
 prompt-caching docs, for example
 [OpenAI's](https://developers.openai.com/api/docs/guides/prompt-caching).
 
+### `tokensaver task-cost LOG [LOG]`
+
+Cost per request can drop while cost per task goes up: a shorter prompt that leaves out
+an instruction the model needed leads to retries and follow-up turns. `task-cost` reads a
+log of **real API calls**, groups them by task and divides all the spend, failures and
+retries included, by the number of tasks that passed.
+
+```bash
+tokensaver task-cost calls.jsonl                 # one log
+tokensaver task-cost before.jsonl after.jsonl    # before and after a prompt change
+```
+
+The log is JSON Lines, one call per line:
+
+```text
+{"task": "order-123", "type": "refund", "passed": true, "response": {...the raw API response...}}
+```
+
+`response` can be a raw Anthropic, OpenAI (Chat Completions or Responses) or Gemini
+response; or give `usage` and `model` directly. `passed` can be on any of a task's lines
+(the last one wins); tasks without it are shown as unknown and left out of cost per
+successful task. `type` is optional and adds a table per task type.
+
+Each call is priced from the usage the provider returned: uncached input, cache reads,
+cache writes (including Anthropic's 1-hour writes) and output. So unlike the other
+commands, this one sees whether calls actually hit the cache. With two logs you get a
+Change column and a line saying whether cost per successful task went up or down,
+flagged in red when a change is cheaper per call but more expensive per success. See
+[examples/task-cost](https://github.com/behrouzbk/tokensaver/tree/main/examples/task-cost)
+for a worked example.
+
+| Option | What it does |
+|---|---|
+| `--model`, `-m` | Price every call as this model instead of the one named in the log. Dated IDs such as `gpt-4o-2024-08-06` are matched to `gpt-4o` without it. |
+| `--prices FILE` | Use your own `prices.json`, for example with your negotiated prices. |
+| `--json` | Prints JSON instead of tables. |
+
 ### JSON output
 
 `--json` prints one JSON object and nothing else, so you can use tokensaver in scripts
@@ -501,7 +541,8 @@ Please read this before relying on the numbers.
   prompt you send. Output tokens, batch discounts and long-context surcharges (for example
   above 200K tokens on Gemini 3.1 Pro or 100K on Claude Haiku 5.5) are not included.
   Prompt-caching prices are used only by `request` and `optimize --cache-hit-rate`,
-  and only for the fixed part.
+  and only for the fixed part. `task-cost` is the exception: it prices input, cache and
+  output from the usage in your log, at standard-tier prices.
 - **Caching estimates are estimates.** They assume the whole fixed part is cached and use
   the default (shortest) cache: 5 minutes on Claude, 30 minutes on GPT-6. Longer caches cost
   more to write, Gemini's explicit caching adds a storage fee, and whether a call actually
@@ -531,6 +572,7 @@ Please read this before relying on the numbers.
 - [x] Check that requests share a cacheable prefix (`tokensaver cache-check`)
 - [x] Prompt-caching cost estimates for the fixed part (`tokensaver request`)
 - [ ] Output-token cost estimates
+- [x] Cost per successful task from logged API usage (`tokensaver task-cost`)
 - [x] Directory mode: scan all prompts in a project (`tokensaver scan`)
 - [ ] More rules: verbose markdown, long URLs, unused template variables
 - [ ] GitHub Action that comments token savings on pull requests
